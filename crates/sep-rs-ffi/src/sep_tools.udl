@@ -1,0 +1,22 @@
+[Error]
+interface SepToolsError {
+  InvalidRequest(string message);
+  OperationFailed(string message);
+};
+
+namespace septools {
+  [Throws=SepToolsError]
+  string model_profiles_json();
+
+  [Throws=SepToolsError]
+  string validate_artifact_json(string request_json);
+
+  [Throws=SepToolsError]
+  string validate_bundle_json(string request_json);
+
+  [Throws=SepToolsError]
+  string generate_device_json(string request_json);
+
+  [Throws=SepToolsError]
+  string generate_bundle_json(string request_json);
+};

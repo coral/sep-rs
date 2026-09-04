@@ -1,0 +1,45 @@
+[package]
+name = "sep-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "Generate and validate Cisco enterprise SEP bootstrap configurations"
+keywords = ["cisco", "sep", "provisioning", "sccp", "sip"]
+categories = ["config", "parser-implementations"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+macaddr.workspace = true
+quick-xml.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_ignored.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+url.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3.104"
+serde-wasm-bindgen = "0.6.5"
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true
+
+# wasm-pack 0.15.0 currently bundles a wasm-opt build which rejects the bulk
+# memory instructions emitted by Rust 1.98. Rust release LTO/size optimization
+# remains enabled at the workspace level; no dependency is downgraded.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[package.metadata.release]
+tag = true
+tag-name = "v{{version}}"
+pre-release-replacements = [
+    { file = "../../package.json", search = '"version": "[0-9A-Za-z.+-]+"', replace = '"version": "{{version}}"', exactly = 1 },
+]

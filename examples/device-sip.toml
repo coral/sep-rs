@@ -1,0 +1,22 @@
+mac = "00:11:22:33:44:56"
+model = "7965"
+firmware = "SIP45.9-4-2SR1-1S"
+phone_label = "Example SIP Phone"
+
+[[endpoints]]
+host = "call-control.example.net"
+port = 5060
+priority = 0
+transport = "tcp"
+
+[protocol.sip]
+
+[[protocol.sip.lines]]
+index = 1
+directory_number = "1001"
+display_name = "Example User"
+auth_name = "1001"
+# Manifest secrets are serialized into the phone configuration. Restrict file
+# permissions and substitute a real secret only at deployment time.
+auth_secret = "CHANGE_ME"
+

@@ -1,0 +1,17 @@
+{
+  "name": "sep-tools",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": "https://github.com/coral/sep-rs",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build:npm",
+    "build:npm": "wasm-pack build crates/sep-rs --target bundler --out-dir ../../pkg --release && node scripts/prepare-npm.mjs",
+    "pack:npm": "npm run build:npm && npm pack ./pkg",
+    "test": "cargo test --workspace"
+  }
+}

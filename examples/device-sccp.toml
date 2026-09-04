@@ -1,0 +1,10 @@
+mac = "00:11:22:33:44:55"
+model = "7965"
+
+[protocol.sccp]
+
+[[endpoints]]
+host = "call-control.example.net"
+port = 2000
+priority = 0
+transport = "tcp"

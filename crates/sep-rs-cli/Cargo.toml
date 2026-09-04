@@ -1,0 +1,27 @@
+[package]
+name = "sep-rs-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+description = "CLI for Cisco SEP bootstrap configuration generation and validation"
+keywords = ["cisco", "sep", "provisioning", "sccp", "sip"]
+categories = ["command-line-utilities", "config"]
+
+[[bin]]
+name = "sep-rs"
+path = "src/main.rs"
+doc = false
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+sep-rs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

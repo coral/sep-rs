@@ -1,0 +1,14 @@
+allow-branch = ["main", "master"]
+shared-version = true
+dependent-version = "upgrade"
+consolidate-commits = true
+pre-release-commit-message = "release: v{{version}}"
+pre-release-hook = [
+    "sh",
+    "-c",
+    'if [ "$CRATE_NAME" = "sep-rs" ]; then cd "$WORKSPACE_ROOT" && ./scripts/release-check.sh; fi',
+]
+tag = false
+tag-message = "release: v{{version}}"
+push = true
+publish = true

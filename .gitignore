@@ -1,0 +1,19 @@
+/target
+research/
+node_modules/
+/pkg/
+*.tgz
+
+# macOS metadata (at every depth)
+**/.DS_Store
+**/.AppleDouble
+**/.LSOverride
+**/Icon?
+**/._*
+**/.DocumentRevisions-V100
+**/.fseventsd
+**/.Spotlight-V100
+**/.TemporaryItems
+**/.Trashes
+**/.VolumeIcon.icns
+**/.com.apple.timemachine.donotpresent
