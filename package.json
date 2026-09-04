@@ -12,6 +12,7 @@
     "build": "npm run build:npm",
     "build:npm": "wasm-pack build crates/sep-rs --target bundler --out-dir ../../pkg --release && node scripts/prepare-npm.mjs",
     "pack:npm": "npm run build:npm && npm pack ./pkg",
-    "test": "cargo test --workspace"
+    "test": "cargo test --workspace",
+    "test:npm": "npm run build:npm && node scripts/test-npm.mjs"
   }
 }

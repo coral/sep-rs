@@ -396,6 +396,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_sep_rs_ffi_checksum_func_options_json()
+		})
+		if checksum != 56213 {
+			// If this happens try cleaning and rebuilding your project
+			panic("septools: uniffi_sep_rs_ffi_checksum_func_options_json: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_sep_rs_ffi_checksum_func_validate_artifact_json()
 		})
 		if checksum != 51074 {
@@ -612,6 +621,47 @@ func (_ FfiDestroyerSepToolsError) Destroy(value *SepToolsError) {
 	}
 }
 
+type FfiConverterOptionalString struct{}
+
+var FfiConverterOptionalStringINSTANCE = FfiConverterOptionalString{}
+
+func (c FfiConverterOptionalString) Lift(rb RustBufferI) *string {
+	return LiftFromRustBuffer[*string](c, rb)
+}
+
+func (_ FfiConverterOptionalString) Read(reader io.Reader) *string {
+	if readInt8(reader) == 0 {
+		return nil
+	}
+	temp := FfiConverterStringINSTANCE.Read(reader)
+	return &temp
+}
+
+func (c FfiConverterOptionalString) Lower(value *string) C.RustBuffer {
+	return LowerIntoRustBuffer[*string](c, value)
+}
+
+func (c FfiConverterOptionalString) LowerExternal(value *string) ExternalCRustBuffer {
+	return RustBufferFromC(LowerIntoRustBuffer[*string](c, value))
+}
+
+func (_ FfiConverterOptionalString) Write(writer io.Writer, value *string) {
+	if value == nil {
+		writeInt8(writer, 0)
+	} else {
+		writeInt8(writer, 1)
+		FfiConverterStringINSTANCE.Write(writer, *value)
+	}
+}
+
+type FfiDestroyerOptionalString struct{}
+
+func (_ FfiDestroyerOptionalString) Destroy(value *string) {
+	if value != nil {
+		FfiDestroyerString{}.Destroy(*value)
+	}
+}
+
 func GenerateBundleJson(requestJson string) (string, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
@@ -644,6 +694,20 @@ func ModelProfilesJson() (string, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
 			inner: C.uniffi_sep_rs_ffi_fn_func_model_profiles_json(_uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue string
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterStringINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
+func OptionsJson(target *string) (string, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_sep_rs_ffi_fn_func_options_json(FfiConverterOptionalStringINSTANCE.Lower(target), _uniffiStatus),
 		}
 	})
 	if _uniffiErr != nil {

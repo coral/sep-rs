@@ -9,6 +9,9 @@ namespace septools {
   string model_profiles_json();
 
   [Throws=SepToolsError]
+  string options_json(string? target);
+
+  [Throws=SepToolsError]
   string validate_artifact_json(string request_json);
 
   [Throws=SepToolsError]

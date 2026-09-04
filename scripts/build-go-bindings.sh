@@ -22,6 +22,8 @@ perl -pi -e 's/some hot garbage in the `uniffi` crate/the UniFFI generator/' \
   bindings/go/septools/sep_tools.h
 perl -pi -e 's|^// Trust me.*$|// Do not edit it manually.|' \
   bindings/go/septools/sep_tools.h
+perl -pi -e 's/[[:blank:]]+$//' bindings/go/septools/sep_tools.h
+perl -0pi -e 's/\n+\z/\n/' bindings/go/septools/sep_tools.h
 
 echo "Go bindings generated in bindings/go/septools"
 echo "Run ./scripts/test-go-bindings.sh to build and test them"

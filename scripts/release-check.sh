@@ -10,6 +10,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ./scripts/test-go-bindings.sh
 npm run build:npm
+node scripts/test-npm.mjs
 npm_config_cache="${TMPDIR:-/tmp}/sep-rs-npm-cache" npm pack ./pkg --dry-run
 CARGO_TARGET_DIR="$package_target" cargo package -p sep-rs --allow-dirty
 # The CLI package cannot be fully assembled until sep-rs has been published.

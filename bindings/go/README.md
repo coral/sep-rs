@@ -4,6 +4,9 @@ The Go package is generated from the same Rust engine through UniFFI. Its API
 uses JSON request and response strings so it stays aligned with the npm and
 edge APIs while preserving categorized native errors.
 
+`OptionsJson(nil)` returns every JSON Schema input definition and its UI choice
+catalogs. Pass a target string pointer to return metadata for only that target.
+
 Install the pinned generator once:
 
 ```console

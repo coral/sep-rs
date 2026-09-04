@@ -5,7 +5,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::{
     ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, generate_bundle,
-    generate_device, model_profiles, validate_artifact_input, validate_bundle_input,
+    generate_device, model_profiles, options, options_for, validate_artifact_input,
+    validate_bundle_input,
 };
 
 /// Return the model compatibility profiles as a JavaScript value.
@@ -16,6 +17,23 @@ use crate::{
 #[wasm_bindgen(js_name = modelProfiles)]
 pub fn model_profiles_js() -> Result<JsValue, JsValue> {
     to_js(&model_profiles())
+}
+
+/// Return the machine-readable input catalog used to build dynamic UIs.
+///
+/// Passing no target returns every supported input. Pass `device`, `defaults`,
+/// `bundle`, `artifact_validation`, or `bundle_validation` to select one.
+///
+/// # Errors
+///
+/// Returns a JavaScript error if the target is unknown or serialization fails.
+#[wasm_bindgen(js_name = options)]
+pub fn options_js(target: Option<String>) -> Result<JsValue, JsValue> {
+    let catalog = match target {
+        Some(target) => options_for(target.parse().map_err(service_error)?),
+        None => options(),
+    };
+    to_js(&catalog)
 }
 
 /// Validate one text artifact from a JavaScript request object.
@@ -71,7 +89,9 @@ fn from_js<T: DeserializeOwned>(value: JsValue) -> Result<T, JsValue> {
 }
 
 fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    serde_wasm_bindgen::to_value(value).map_err(service_error)
+    value
+        .serialize(&serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true))
+        .map_err(service_error)
 }
 
 fn service_error(error: impl std::fmt::Display) -> JsValue {

@@ -14,7 +14,12 @@ cargo add sep-rs
 ```
 
 ```rust
-use sep_rs::{ArtifactValidationRequest, validate_artifact_input};
+use sep_rs::{ArtifactValidationRequest, OptionsTarget, options, validate_artifact_input};
+
+// A typed reflection document with JSON Schema and runtime choice catalogs.
+let all_inputs = options();
+let device_input = all_inputs.target(OptionsTarget::Device).unwrap();
+assert_eq!(device_input.schema_ref, "#/$defs/DeviceSpec");
 
 let result = validate_artifact_input(&ArtifactValidationRequest {
     filename: "SEP001122334455.cnf.xml".to_owned(),
@@ -96,22 +101,25 @@ The package uses wasm-pack's `bundler` target. Its generated JavaScript imports
 the `.wasm` module directly, which Wrangler bundles for Cloudflare Workers.
 
 ```ts
-import { modelProfiles, validateArtifact } from 'sep-tools'
+import { modelProfiles, options, validateArtifact } from 'sep-tools'
 
 const models = modelProfiles()
+const deviceForm = options('device')
 const result = validateArtifact({
   filename: 'SEP001122334455.cnf.xml',
   contents: '<device>...</device>',
 })
 ```
 
-The package exports `modelProfiles`, `validateArtifact`, `validateBundle`,
-`generateDevice`, and `generateBundle`. Operations are synchronous and do not
-perform network or filesystem I/O.
+The package exports `options`, `modelProfiles`, `validateArtifact`,
+`validateBundle`, `generateDevice`, and `generateBundle`. `options()` returns a
+typed catalog backed by JSON Schema Draft 2020-12 for rendering dynamic forms;
+pass a target such as `device` to filter it. Operations are synchronous and do
+not perform network or filesystem I/O.
 
 ## Go bindings
 
-The Go generator uses UniFFI's third-party Go backend and exposes the same five
+The Go generator uses UniFFI's third-party Go backend and exposes the same
 operations through JSON request and response strings. This keeps the foreign
 ABI small and stable while sharing all parsing, validation, and generation
 logic with Rust and npm.

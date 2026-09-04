@@ -7,8 +7,9 @@
 #![allow(clippy::large_const_arrays)] // Emitted by UniFFI 0.31 scaffolding.
 
 use sep_rs::{
-    ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, generate_bundle,
-    generate_device, model_profiles, validate_artifact_input, validate_bundle_input,
+    ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, OptionsTarget,
+    generate_bundle, generate_device, model_profiles, options, options_for,
+    validate_artifact_input, validate_bundle_input,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -22,6 +23,18 @@ pub enum SepToolsError {
 
 fn model_profiles_json() -> Result<String, SepToolsError> {
     encode(&model_profiles())
+}
+
+fn options_json(target: Option<String>) -> Result<String, SepToolsError> {
+    let catalog = match target {
+        Some(target) => options_for(target.parse::<OptionsTarget>().map_err(|error| {
+            SepToolsError::InvalidRequest {
+                message: error.to_string(),
+            }
+        })?),
+        None => options(),
+    };
+    encode(&catalog)
 }
 
 fn validate_artifact_json(request_json: String) -> Result<String, SepToolsError> {
@@ -81,6 +94,22 @@ mod tests {
                 .as_array()
                 .is_some_and(|profiles| !profiles.is_empty())
         );
+    }
+
+    #[test]
+    fn options_can_be_filtered_at_the_json_boundary() {
+        let value = options_json(Some("device".to_owned())).expect("serialize options");
+        let value: serde_json::Value = serde_json::from_str(&value).expect("valid JSON");
+
+        assert_eq!(value["schema_version"], 1);
+        assert_eq!(value["targets"][0]["target"], "device");
+        assert_eq!(value["targets"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn unknown_options_target_is_a_categorized_error() {
+        let error = options_json(Some("wat".to_owned())).expect_err("invalid target");
+        assert!(matches!(error, SepToolsError::InvalidRequest { .. }));
     }
 
     #[test]

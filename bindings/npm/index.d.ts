@@ -47,6 +47,43 @@ export interface ModelProfile {
   load_prefixes: string[]
 }
 
+export type OptionsTarget =
+  | 'device'
+  | 'defaults'
+  | 'bundle'
+  | 'artifact_validation'
+  | 'bundle_validation'
+
+export interface OptionsTargetDefinition {
+  target: OptionsTarget
+  title: string
+  description: string
+  schema_ref: string
+}
+
+export interface OptionsChoices {
+  /** Suggestions only: unknown non-empty model identifiers are also accepted. */
+  model_profiles: ModelProfile[]
+  protocols: Protocol[]
+  signaling_modes: SignalingMode[]
+  transports: Transport[]
+  artifact_kinds: ArtifactKind[]
+  artifact_dialects: ArtifactDialect[]
+  sip_button_features: Array<
+    'line' | 'speed_dial' | 'service_uri' | 'blf' | 'intercom' | 'raw'
+  >
+}
+
+export type JsonSchema = boolean | { [keyword: string]: unknown }
+
+export interface OptionsCatalog {
+  schema_version: number
+  targets: OptionsTargetDefinition[]
+  choices: OptionsChoices
+  /** JSON Schema Draft 2020-12. Resolve each target's schema_ref here. */
+  schema: JsonSchema
+}
+
 export interface BundleFile {
   filename: string
   contents?: string
@@ -163,6 +200,8 @@ export interface BootstrapBundle {
 }
 
 export function modelProfiles(): ModelProfile[]
+/** Return all input schemas, or only the selected target, plus UI choice catalogs. */
+export function options(target?: OptionsTarget): OptionsCatalog
 export function validateArtifact(request: {
   filename: string
   contents: string

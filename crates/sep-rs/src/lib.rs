@@ -8,6 +8,7 @@ mod bundle;
 mod catalog;
 mod diagnostic;
 mod generation;
+mod introspection;
 mod legacy;
 mod model;
 mod service;
@@ -24,6 +25,10 @@ pub use bundle::{BundleError, generate_bundle, validate_bundle, validate_bundle_
 pub use catalog::{ModelProfile, PhoneProfile, profiles, resolve_profile};
 pub use diagnostic::{Diagnostic, Severity};
 pub use generation::{GenerationError, generate_defaults, generate_device};
+pub use introspection::{
+    OPTIONS_SCHEMA_VERSION, OptionsCatalog, OptionsChoices, OptionsTarget, OptionsTargetDefinition,
+    ParseOptionsTargetError, options, options_for,
+};
 pub use model::*;
 pub use service::{
     ArtifactValidationRequest, BundleValidationRequest, ModelProfileView, ServiceError,

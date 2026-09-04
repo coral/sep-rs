@@ -383,7 +383,12 @@ RustBuffer uniffi_sep_rs_ffi_fn_func_generate_device_json(RustBuffer request_jso
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_MODEL_PROFILES_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_MODEL_PROFILES_JSON
 RustBuffer uniffi_sep_rs_ffi_fn_func_model_profiles_json(RustCallStatus *out_status
-    
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_OPTIONS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_OPTIONS_JSON
+RustBuffer uniffi_sep_rs_ffi_fn_func_options_json(RustBuffer target, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_ARTIFACT_JSON
@@ -659,36 +664,42 @@ void ffi_sep_rs_ffi_rust_future_complete_void(uint64_t handle, RustCallStatus *o
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_GENERATE_BUNDLE_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_GENERATE_BUNDLE_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_generate_bundle_json(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_GENERATE_DEVICE_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_GENERATE_DEVICE_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_generate_device_json(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_MODEL_PROFILES_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_MODEL_PROFILES_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_model_profiles_json(void
-    
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_OPTIONS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_OPTIONS_JSON
+uint16_t uniffi_sep_rs_ffi_checksum_func_options_json(void
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_ARTIFACT_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_ARTIFACT_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_validate_artifact_json(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_BUNDLE_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_BUNDLE_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_validate_bundle_json(void
-    
+
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_SEP_RS_FFI_UNIFFI_CONTRACT_VERSION
 #define UNIFFI_FFIDEF_FFI_SEP_RS_FFI_UNIFFI_CONTRACT_VERSION
 uint32_t ffi_sep_rs_ffi_uniffi_contract_version(void
-    
+
 );
 #endif
