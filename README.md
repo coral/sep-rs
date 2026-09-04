@@ -5,6 +5,11 @@ generating Cisco enterprise-phone bootstrap configuration. It understands
 enterprise SCCP and SIP `SEP<MAC>.cnf.xml`, `XMLDefault.cnf.xml`, and the
 legacy 7940/7960 SIP text format.
 
+## Published artifacts
+
+Rust: [sep-rs on crates.io](https://crates.io/crates/sep-rs)
+NPM: [sep-tools on npmjs.com](https://www.npmjs.com/package/sep-tools)
+
 ## Rust library
 
 Add the library to a Rust project:
@@ -37,12 +42,14 @@ cargo test --workspace
 
 ## CLI
 
-Install the CLI from crates.io:
+Install the CLI from a local checkout:
 
 ```console
-cargo install sep-rs-cli
+cargo install --path crates/sep-rs-cli
 sep-rs models
 ```
+
+The CLI is a repository companion and is not published to crates.io.
 
 Validate one artifact or a directory containing a bootstrap bundle:
 

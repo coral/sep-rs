@@ -6,6 +6,7 @@ license.workspace = true
 repository.workspace = true
 homepage.workspace = true
 readme.workspace = true
+publish = false
 description = "CLI for Cisco SEP bootstrap configuration generation and validation"
 keywords = ["cisco", "sep", "provisioning", "sccp", "sip"]
 categories = ["command-line-utilities", "config"]
@@ -25,3 +26,6 @@ toml.workspace = true
 
 [lints]
 workspace = true
+
+[package.metadata.release]
+release = false

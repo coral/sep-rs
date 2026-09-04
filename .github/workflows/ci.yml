@@ -19,9 +19,6 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo package -p sep-rs
-      # Full CLI packaging resolves sep-rs from crates.io, so it becomes
-      # available after the library's first publish.
-      - run: cargo package -p sep-rs-cli --list >/dev/null
 
   npm:
     runs-on: ubuntu-latest

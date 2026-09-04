@@ -11,4 +11,6 @@ pre-release-hook = [
 tag = false
 tag-message = "release: v{{version}}"
 push = true
+# Only packages without `package.metadata.release.release = false` participate.
+# The CLI and UniFFI bridge are explicitly disabled in their Cargo manifests.
 publish = true
