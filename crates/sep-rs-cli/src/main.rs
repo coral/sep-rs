@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::str::FromStr;
 
 use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
@@ -10,7 +11,7 @@ use sep_rs::{
     GeneratedArtifact, Host, MacAddress, PhoneModelId, PhoneOptionsCatalog, Protocol, ProtocolSpec,
     SccpSpec, Secret, ServiceUrls, SettingVariant, Severity, SipLine, SipSpec, Transport,
     detect_artifact, generate_bundle, generate_device, parse_artifact, phone_options, profiles,
-    resolve_profile, validate, validate_bundle,
+    resolve_profile, sep_settings, validate, validate_bundle,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -39,6 +40,8 @@ enum Command {
     Models(ModelsArgs),
     /// Explore every SEP setting available to a phone model.
     Explore(ExploreArgs),
+    /// Export the complete or model-specific SEP setting catalog.
+    Export(ExportArgs),
 }
 
 #[derive(Debug, Args)]
@@ -146,6 +149,32 @@ enum OutputFormat {
     Json,
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+enum ExportFormat {
+    #[default]
+    Json,
+    Xml,
+    Toml,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum ExportTarget {
+    All,
+    Model(PhoneModelId),
+}
+
+impl FromStr for ExportTarget {
+    type Err = sep_rs::ParsePhoneModelIdError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if value.eq_ignore_ascii_case("all") {
+            Ok(Self::All)
+        } else {
+            value.parse().map(Self::Model)
+        }
+    }
+}
+
 #[derive(Debug, Args)]
 struct ValidateArgs {
     /// Artifact to validate. Use the `bundle` subcommand for a directory.
@@ -200,6 +229,17 @@ struct ExploreArgs {
     format: OutputFormat,
 }
 
+#[derive(Debug, Args)]
+struct ExportArgs {
+    /// `all` for every catalog variant, or a phone model to resolve.
+    #[arg(value_name = "ALL|MODEL")]
+    target: ExportTarget,
+
+    /// Serialization format written to standard output.
+    #[arg(long, value_enum, default_value_t)]
+    format: ExportFormat,
+}
+
 #[derive(Debug, Serialize)]
 struct ExploreOutput {
     requested_model: String,
@@ -226,6 +266,7 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Validate(args) => validate_input(&args),
         Command::Models(args) => list_models(args.format),
         Command::Explore(args) => explore_model(&args),
+        Command::Export(args) => export_catalog(&args),
     }
 }
 
@@ -358,8 +399,21 @@ fn explore_model(args: &ExploreArgs) -> Result<u8> {
         .model
         .parse::<PhoneModelId>()
         .context("invalid model")?;
-    let profile = resolve_profile(&model);
-    let protocols = match (args.protocol, profile) {
+    let (output, profile) = collect_phone_options(&model, args.protocol);
+
+    match args.format {
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&output)?),
+        OutputFormat::Human => print_exploration(&output, profile)?,
+    }
+    Ok(EXIT_OK)
+}
+
+fn collect_phone_options(
+    model: &PhoneModelId,
+    protocol: Option<ProtocolArg>,
+) -> (ExploreOutput, Option<&'static sep_rs::PhoneProfile>) {
+    let profile = resolve_profile(model);
+    let protocols = match (protocol, profile) {
         (Some(ProtocolArg::Sccp), _) => vec![Protocol::Sccp],
         (Some(ProtocolArg::Sip), _) => vec![Protocol::Sip],
         (None, Some(profile)) => profile.protocols.to_vec(),
@@ -370,15 +424,47 @@ fn explore_model(args: &ExploreArgs) -> Result<u8> {
         resolved_model: profile.map(|profile| profile.id.to_owned()),
         options: protocols
             .into_iter()
-            .map(|protocol| phone_options(&model, protocol))
+            .map(|protocol| phone_options(model, protocol))
             .collect(),
     };
+    (output, profile)
+}
 
-    match args.format {
-        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&output)?),
-        OutputFormat::Human => print_exploration(&output, profile)?,
+fn export_catalog(args: &ExportArgs) -> Result<u8> {
+    match &args.target {
+        ExportTarget::All => {
+            print_export(sep_settings(), args.format, "sepSettingsCatalog")?;
+        }
+        ExportTarget::Model(model) => {
+            let (output, _) = collect_phone_options(model, None);
+            print_export(&output, args.format, "phoneOptionsCatalog")?;
+        }
     }
     Ok(EXIT_OK)
+}
+
+fn print_export<T: Serialize>(value: &T, format: ExportFormat, xml_root: &str) -> Result<()> {
+    let serialized = match format {
+        ExportFormat::Json => serde_json::to_string_pretty(value)?,
+        ExportFormat::Xml => serialize_export_xml(value, xml_root)?,
+        ExportFormat::Toml => toml::to_string_pretty(value)?,
+    };
+    let mut stdout = io::stdout().lock();
+    stdout.write_all(serialized.as_bytes())?;
+    if !serialized.ends_with('\n') {
+        stdout.write_all(b"\n")?;
+    }
+    Ok(())
+}
+
+fn serialize_export_xml<T: Serialize>(value: &T, root: &str) -> Result<String> {
+    let mut body = String::new();
+    let mut serializer = quick_xml::se::Serializer::with_root(&mut body, Some(root))?;
+    serializer.indent(' ', 2);
+    value.serialize(serializer)?;
+    Ok(format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n{body}"
+    ))
 }
 
 fn print_exploration(output: &ExploreOutput, profile: Option<&sep_rs::PhoneProfile>) -> Result<()> {

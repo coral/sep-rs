@@ -725,6 +725,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
+ "quick-xml",
  "sep-rs",
  "serde",
  "serde_json",

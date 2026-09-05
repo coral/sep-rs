@@ -73,6 +73,16 @@ cargo run -- explore 7609
 cargo run -- explore 8841 --protocol sip --format json
 ```
 
+Export the complete setting catalog, including every model/protocol variant,
+or resolve it for one phone. JSON is the default; XML and TOML are also
+available:
+
+```console
+cargo run -- export all > sep-settings.json
+cargo run -- export all --format xml > sep-settings.xml
+cargo run -- export 8841 --format toml > cp-8841-settings.toml
+```
+
 Generate a device configuration from a TOML or JSON manifest:
 
 ```console

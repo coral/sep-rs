@@ -19,6 +19,7 @@ doc = false
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
+quick-xml.workspace = true
 sep-rs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
