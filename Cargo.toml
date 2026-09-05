@@ -23,6 +23,7 @@ anyhow = "1.0.104"
 clap = { version = "4.6.6", features = ["derive"] }
 macaddr = { version = "1.0.1", features = ["serde_std"] }
 quick-xml = { version = "0.42.0", features = ["serialize"] }
+regex = "1.11.3"
 secrecy = "0.10.3"
 sep-rs = { version = "0.2.0", path = "crates/sep-rs" }
 serde = { version = "1.0.229", features = ["derive"] }

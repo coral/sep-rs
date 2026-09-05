@@ -4,9 +4,9 @@ use serde::{Serialize, de::DeserializeOwned};
 use wasm_bindgen::prelude::*;
 
 use crate::{
-    ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, generate_bundle,
-    generate_device, model_profiles, options, options_for, validate_artifact_input,
-    validate_bundle_input,
+    ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, PhoneModelId,
+    Protocol, SepSetting, generate_bundle, generate_device, model_profiles, options, options_for,
+    phone_options, validate_artifact_input, validate_bundle_input, validate_phone_settings,
 };
 
 /// Return the model compatibility profiles as a JavaScript value.
@@ -29,11 +29,39 @@ pub fn model_profiles_js() -> Result<JsValue, JsValue> {
 /// Returns a JavaScript error if the target is unknown or serialization fails.
 #[wasm_bindgen(js_name = options)]
 pub fn options_js(target: Option<String>) -> Result<JsValue, JsValue> {
-    let catalog = match target {
-        Some(target) => options_for(target.parse().map_err(service_error)?),
-        None => options(),
-    };
-    to_js(&catalog)
+    match target {
+        Some(target) => to_js(&options_for(target.parse().map_err(service_error)?)),
+        None => to_js(options()),
+    }
+}
+
+/// Return every setting applicable to one phone model and protocol.
+///
+/// # Errors
+///
+/// Returns a JavaScript error for an invalid model or protocol value.
+#[wasm_bindgen(js_name = phoneOptions)]
+pub fn phone_options_js(model: String, protocol: String) -> Result<JsValue, JsValue> {
+    let model = model.parse::<PhoneModelId>().map_err(service_error)?;
+    let protocol = parse_protocol(&protocol)?;
+    to_js(&phone_options(&model, protocol))
+}
+
+/// Validate advanced SEP settings for one phone model and protocol.
+///
+/// # Errors
+///
+/// Returns a JavaScript error if arguments cannot be decoded.
+#[wasm_bindgen(js_name = validatePhoneSettings)]
+pub fn validate_phone_settings_js(
+    model: String,
+    protocol: String,
+    settings: JsValue,
+) -> Result<JsValue, JsValue> {
+    let model = model.parse::<PhoneModelId>().map_err(service_error)?;
+    let protocol = parse_protocol(&protocol)?;
+    let settings = from_js::<Vec<SepSetting>>(settings)?;
+    to_js(&validate_phone_settings(&model, protocol, &settings))
 }
 
 /// Validate one text artifact from a JavaScript request object.
@@ -96,4 +124,8 @@ fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
 
 fn service_error(error: impl std::fmt::Display) -> JsValue {
     js_sys::Error::new(&error.to_string()).into()
+}
+
+fn parse_protocol(value: &str) -> Result<Protocol, JsValue> {
+    value.parse().map_err(service_error)
 }

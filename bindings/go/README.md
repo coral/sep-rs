@@ -6,6 +6,9 @@ edge APIs while preserving categorized native errors.
 
 `OptionsJson(nil)` returns every JSON Schema input definition and its UI choice
 catalogs. Pass a target string pointer to return metadata for only that target.
+`PhoneOptionsJson("8841", "sip")` returns the model-specific setting catalog.
+`ValidatePhoneSettingsJson(...)` validates advanced path/value settings before
+generation.
 
 Install the pinned generator once:
 

@@ -3,7 +3,6 @@ research/
 node_modules/
 /pkg/
 *.tgz
-
 # macOS metadata (at every depth)
 **/.DS_Store
 **/.AppleDouble

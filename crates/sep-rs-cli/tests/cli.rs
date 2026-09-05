@@ -77,3 +77,32 @@ fn direct_generation_validates_and_protects_existing_output() {
 
     std::fs::remove_dir_all(&directory).expect("remove controlled temporary directory");
 }
+
+#[test]
+fn explore_resolves_known_profiles_and_keeps_unknown_models_explorable() {
+    let binary = env!("CARGO_BIN_EXE_sep-rs");
+    let known = Command::new(binary)
+        .args(["explore", "7945", "--format", "json"])
+        .output()
+        .expect("explore known model");
+    assert!(known.status.success());
+    let known: serde_json::Value =
+        serde_json::from_slice(&known.stdout).expect("known exploration JSON");
+    assert_eq!(known["resolved_model"], "CP-7945G");
+    assert_eq!(known["options"].as_array().map(Vec::len), Some(2));
+
+    let unknown = Command::new(binary)
+        .args(["explore", "7609", "--protocol", "sccp", "--format", "json"])
+        .output()
+        .expect("explore unknown model");
+    assert!(unknown.status.success());
+    let unknown: serde_json::Value =
+        serde_json::from_slice(&unknown.stdout).expect("unknown exploration JSON");
+    assert!(unknown["resolved_model"].is_null());
+    assert_eq!(unknown["options"][0]["protocol"], "sccp");
+    assert!(
+        unknown["options"][0]["settings"]
+            .as_array()
+            .is_some_and(|settings| !settings.is_empty())
+    );
+}

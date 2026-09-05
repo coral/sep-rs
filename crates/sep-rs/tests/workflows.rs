@@ -4,8 +4,8 @@ use sep_rs::{
     ArtifactDialect, ArtifactKind, BootstrapBundle, BundleFile, BundleSpec,
     BundleValidationRequest, CallControlEndpoint, DefaultSpec, DeviceSpec, Diagnostic, Host,
     InventorySource, MacAddress, ModelLoad, PhoneModelId, Protocol, ProtocolSpec, SccpSpec, Secret,
-    ServiceUrls, Severity, SipLine, SipSpec, Transport, generate_bundle, generate_device,
-    parse_artifact, validate, validate_bundle_input,
+    SepSetting, SepSettingValue, ServiceUrls, Severity, SipLine, SipSpec, Transport,
+    generate_bundle, generate_device, parse_artifact, validate, validate_bundle_input,
 };
 
 fn endpoint(port: u16) -> CallControlEndpoint {
@@ -30,6 +30,8 @@ fn base_device(protocol: ProtocolSpec) -> DeviceSpec {
         ntp_server: None,
         locale: None,
         services: ServiceUrls::default(),
+        settings: Vec::new(),
+        allow_unknown_settings: false,
     }
 }
 
@@ -139,6 +141,65 @@ fn invalid_sip_reports_multiple_semantic_errors_without_echoing_secrets() {
     assert!(diagnostics.iter().filter(|item| item.is_error()).count() >= 5);
     let rendered = format!("{diagnostics:?}");
     assert!(!rendered.contains("never-print-this"));
+}
+
+#[test]
+fn advanced_settings_are_validated_merged_and_escaped() {
+    let mut spec = base_device(ProtocolSpec::Sccp(SccpSpec::default()));
+    spec.settings = vec![
+        SepSetting::new(
+            "/device/vendorConfig/displayOnTime"
+                .parse()
+                .expect("valid display setting path"),
+            SepSettingValue::String("09:15".to_owned()),
+        ),
+        SepSetting::new(
+            "/device/devicePool/callManagerGroup/members/member[1]/@priority"
+                .parse()
+                .expect("valid priority setting path"),
+            SepSettingValue::Integer(7),
+        ),
+    ];
+    let artifact = generate_device(&spec).expect("advanced generation");
+    assert!(
+        artifact
+            .contents
+            .contains("<displayOnTime>09:15</displayOnTime>")
+    );
+    assert!(artifact.contents.contains("<member priority=\"7\">"));
+    let parsed = parse_artifact(&artifact.contents, Some(&artifact.filename)).expect("parse");
+    assert!(
+        !validate(&parsed, Some(&spec.model))
+            .iter()
+            .any(Diagnostic::is_error)
+    );
+
+    spec.settings[0].value = SepSettingValue::String("25:99".to_owned());
+    assert!(generate_device(&spec).is_err());
+
+    spec.settings = vec![SepSetting::new(
+        "/device/deviceProtocol"
+            .parse()
+            .expect("valid protocol setting path"),
+        SepSettingValue::String("SIP".to_owned()),
+    )];
+    assert!(generate_device(&spec).is_err());
+
+    spec.settings = vec![SepSetting::new(
+        "/device/vendorConfig/futureFirmwareField"
+            .parse()
+            .expect("valid future setting path"),
+        SepSettingValue::String("<&".to_owned()),
+    )];
+    spec.allow_unknown_settings = true;
+    let artifact = generate_device(&spec).expect("forward-compatible generation");
+    assert!(artifact.contents.contains("&lt;&amp;"));
+    assert!(
+        artifact
+            .warnings
+            .iter()
+            .any(|diagnostic| diagnostic.code == "unknown_field")
+    );
 }
 
 #[test]

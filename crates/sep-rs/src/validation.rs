@@ -10,6 +10,7 @@ use crate::catalog::resolve_profile;
 use crate::diagnostic::{Diagnostic, code};
 use crate::legacy::LegacyEntry;
 use crate::model::{Host, PhoneModelId, Protocol};
+use crate::settings::validate_xml_settings;
 use crate::xml::{CallManagerGroup, DeviceDocument, SipLine};
 
 /// Validate an already parsed artifact. A model hint enables compatibility
@@ -18,21 +19,18 @@ use crate::xml::{CallManagerGroup, DeviceDocument, SipLine};
 pub fn validate(artifact: &ParsedArtifact, model_hint: Option<&PhoneModelId>) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for path in artifact.ignored_paths() {
-        diagnostics.push(
-            Diagnostic::warning(
-                code::UNKNOWN_FIELD,
-                "field is preserved in the original source but is not modeled",
-            )
-            .at(path),
-        );
-    }
     validate_placeholders(artifact.original_source(), &mut diagnostics);
     validate_filename(artifact, &mut diagnostics);
 
     match artifact.document() {
         ParsedDocument::Device(document) => {
-            validate_device(document, model_hint, &mut diagnostics);
+            if let Some(protocol) = validate_device(document, model_hint, &mut diagnostics) {
+                diagnostics.extend(validate_xml_settings(
+                    artifact.original_source(),
+                    model_hint,
+                    protocol,
+                ));
+            }
         }
         ParsedDocument::Default(document) => {
             validate_call_managers(&document.call_manager_group, &mut diagnostics);
@@ -60,11 +58,10 @@ fn validate_device(
     document: &DeviceDocument,
     model_hint: Option<&PhoneModelId>,
     diagnostics: &mut Vec<Diagnostic>,
-) {
-    let protocol = match document.device_protocol.as_deref() {
-        Some(value) if value.eq_ignore_ascii_case("SCCP") => Some(Protocol::Sccp),
-        Some(value) if value.eq_ignore_ascii_case("SIP") => Some(Protocol::Sip),
-        Some(_) => {
+) -> Option<Protocol> {
+    let protocol = match document.device_protocol.as_deref().map(str::parse) {
+        Some(Ok(protocol)) => Some(protocol),
+        Some(Err(_)) => {
             diagnostics.push(
                 Diagnostic::error(
                     code::MODEL_PROTOCOL_MISMATCH,
@@ -160,6 +157,7 @@ fn validate_device(
     ] {
         validate_url(path, value, diagnostics);
     }
+    protocol
 }
 
 fn validate_ntp_servers(document: &DeviceDocument, diagnostics: &mut Vec<Diagnostic>) {

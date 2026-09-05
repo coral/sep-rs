@@ -405,6 +405,15 @@ func uniffiCheckChecksums() {
 	}
 	{
 		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_sep_rs_ffi_checksum_func_phone_options_json()
+		})
+		if checksum != 56889 {
+			// If this happens try cleaning and rebuilding your project
+			panic("septools: uniffi_sep_rs_ffi_checksum_func_phone_options_json: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
 			return C.uniffi_sep_rs_ffi_checksum_func_validate_artifact_json()
 		})
 		if checksum != 51074 {
@@ -419,6 +428,15 @@ func uniffiCheckChecksums() {
 		if checksum != 13307 {
 			// If this happens try cleaning and rebuilding your project
 			panic("septools: uniffi_sep_rs_ffi_checksum_func_validate_bundle_json: UniFFI API checksum mismatch")
+		}
+	}
+	{
+		checksum := rustCall(func(_uniffiStatus *C.RustCallStatus) C.uint16_t {
+			return C.uniffi_sep_rs_ffi_checksum_func_validate_phone_settings_json()
+		})
+		if checksum != 29374 {
+			// If this happens try cleaning and rebuilding your project
+			panic("septools: uniffi_sep_rs_ffi_checksum_func_validate_phone_settings_json: UniFFI API checksum mismatch")
 		}
 	}
 }
@@ -718,6 +736,20 @@ func OptionsJson(target *string) (string, error) {
 	}
 }
 
+func PhoneOptionsJson(model string, protocol string) (string, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_sep_rs_ffi_fn_func_phone_options_json(FfiConverterStringINSTANCE.Lower(model), FfiConverterStringINSTANCE.Lower(protocol), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue string
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterStringINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
 func ValidateArtifactJson(requestJson string) (string, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
@@ -736,6 +768,20 @@ func ValidateBundleJson(requestJson string) (string, error) {
 	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
 		return GoRustBuffer{
 			inner: C.uniffi_sep_rs_ffi_fn_func_validate_bundle_json(FfiConverterStringINSTANCE.Lower(requestJson), _uniffiStatus),
+		}
+	})
+	if _uniffiErr != nil {
+		var _uniffiDefaultValue string
+		return _uniffiDefaultValue, _uniffiErr
+	} else {
+		return FfiConverterStringINSTANCE.Lift(_uniffiRV), nil
+	}
+}
+
+func ValidatePhoneSettingsJson(requestJson string) (string, error) {
+	_uniffiRV, _uniffiErr := rustCallWithError[*SepToolsError](FfiConverterSepToolsError{}, func(_uniffiStatus *C.RustCallStatus) RustBufferI {
+		return GoRustBuffer{
+			inner: C.uniffi_sep_rs_ffi_fn_func_validate_phone_settings_json(FfiConverterStringINSTANCE.Lower(requestJson), _uniffiStatus),
 		}
 	})
 	if _uniffiErr != nil {

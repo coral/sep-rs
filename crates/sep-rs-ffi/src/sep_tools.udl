@@ -12,10 +12,16 @@ namespace septools {
   string options_json(string? target);
 
   [Throws=SepToolsError]
+  string phone_options_json(string model, string protocol);
+
+  [Throws=SepToolsError]
   string validate_artifact_json(string request_json);
 
   [Throws=SepToolsError]
   string validate_bundle_json(string request_json);
+
+  [Throws=SepToolsError]
+  string validate_phone_settings_json(string request_json);
 
   [Throws=SepToolsError]
   string generate_device_json(string request_json);

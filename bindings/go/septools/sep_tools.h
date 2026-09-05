@@ -391,6 +391,11 @@ RustBuffer uniffi_sep_rs_ffi_fn_func_model_profiles_json(RustCallStatus *out_sta
 RustBuffer uniffi_sep_rs_ffi_fn_func_options_json(RustBuffer target, RustCallStatus *out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_PHONE_OPTIONS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_PHONE_OPTIONS_JSON
+RustBuffer uniffi_sep_rs_ffi_fn_func_phone_options_json(RustBuffer model, RustBuffer protocol, RustCallStatus *out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_ARTIFACT_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_ARTIFACT_JSON
 RustBuffer uniffi_sep_rs_ffi_fn_func_validate_artifact_json(RustBuffer request_json, RustCallStatus *out_status
@@ -399,6 +404,11 @@ RustBuffer uniffi_sep_rs_ffi_fn_func_validate_artifact_json(RustBuffer request_j
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_BUNDLE_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_BUNDLE_JSON
 RustBuffer uniffi_sep_rs_ffi_fn_func_validate_bundle_json(RustBuffer request_json, RustCallStatus *out_status
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_PHONE_SETTINGS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_FN_FUNC_VALIDATE_PHONE_SETTINGS_JSON
+RustBuffer uniffi_sep_rs_ffi_fn_func_validate_phone_settings_json(RustBuffer request_json, RustCallStatus *out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_FFI_SEP_RS_FFI_RUSTBUFFER_ALLOC
@@ -685,6 +695,12 @@ uint16_t uniffi_sep_rs_ffi_checksum_func_options_json(void
 
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_PHONE_OPTIONS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_PHONE_OPTIONS_JSON
+uint16_t uniffi_sep_rs_ffi_checksum_func_phone_options_json(void
+
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_ARTIFACT_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_ARTIFACT_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_validate_artifact_json(void
@@ -694,6 +710,12 @@ uint16_t uniffi_sep_rs_ffi_checksum_func_validate_artifact_json(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_BUNDLE_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_BUNDLE_JSON
 uint16_t uniffi_sep_rs_ffi_checksum_func_validate_bundle_json(void
+
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_PHONE_SETTINGS_JSON
+#define UNIFFI_FFIDEF_UNIFFI_SEP_RS_FFI_CHECKSUM_FUNC_VALIDATE_PHONE_SETTINGS_JSON
+uint16_t uniffi_sep_rs_ffi_checksum_func_validate_phone_settings_json(void
 
 );
 #endif

@@ -72,6 +72,69 @@ export interface OptionsChoices {
   sip_button_features: Array<
     'line' | 'speed_dial' | 'service_uri' | 'blf' | 'intercom' | 'raw'
   >
+  /** Full catalog with all model/protocol-specific SEP XML rule variants. */
+  sep_settings: SepSettingDefinition[]
+}
+
+export type SepSettingValue = boolean | number | string | Array<boolean | number | string> | null
+export type SettingValueKind = 'boolean' | 'integer' | 'string'
+export interface SettingAllowedValue {
+  value: SepSettingValue
+  label: string
+}
+
+export interface SettingSelector {
+  model: string
+  protocol: Protocol
+}
+
+export interface SettingConstraint {
+  value_kind: SettingValueKind
+  nullable: boolean
+  default?: SepSettingValue
+  allowed_values?: SettingAllowedValue[]
+  minimum?: number
+  maximum?: number
+  maximum_characters?: number
+  pattern?: string
+  secret: boolean
+  multiple: boolean
+}
+
+export interface SettingVariant extends SettingConstraint {
+  selectors: SettingSelector[]
+}
+
+export interface SepSettingDefinition {
+  path: string
+  name: string
+  title: string
+  section: string
+  variants: SettingVariant[]
+}
+
+export interface PhoneSettingOption extends SettingConstraint {
+  path: string
+  name: string
+  title: string
+  section: string
+}
+
+export interface PhoneOptionsCatalog {
+  schema_version: number
+  requested_model: string
+  model?: string
+  protocol: Protocol
+  supported: boolean
+  settings_dialect: 'enterprise_xml'
+  dialects: ArtifactDialect[]
+  settings: PhoneSettingOption[]
+}
+
+export interface SepSetting {
+  /** `/device`-rooted path; repeated elements use one-based indexes. */
+  path: string
+  value: SepSettingValue
 }
 
 export type JsonSchema = boolean | { [keyword: string]: unknown }
@@ -151,6 +214,9 @@ export interface DeviceSpec {
   ntp_server?: string
   locale?: string
   services?: ServiceUrls
+  settings?: SepSetting[]
+  /** Forward-compatibility escape hatch; false retains full catalog validation. */
+  allow_unknown_settings?: boolean
 }
 
 export interface DefaultSpec {
@@ -202,6 +268,14 @@ export interface BootstrapBundle {
 export function modelProfiles(): ModelProfile[]
 /** Return all input schemas, or only the selected target, plus UI choice catalogs. */
 export function options(target?: OptionsTarget): OptionsCatalog
+/** Resolve all SEP XML settings and constraints for a concrete phone/protocol. */
+export function phoneOptions(model: string, protocol: Protocol): PhoneOptionsCatalog
+/** Validate advanced path/value settings without generating an artifact. */
+export function validatePhoneSettings(
+  model: string,
+  protocol: Protocol,
+  settings: SepSetting[],
+): Diagnostic[]
 export function validateArtifact(request: {
   filename: string
   contents: string

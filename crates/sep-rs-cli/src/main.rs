@@ -7,11 +7,12 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use sep_rs::{
     ArtifactDialect, BootstrapBundle, BundleSpec, CallControlEndpoint, DeviceSpec, Diagnostic,
-    GeneratedArtifact, Host, MacAddress, PhoneModelId, ProtocolSpec, SccpSpec, Secret, ServiceUrls,
-    Severity, SipLine, SipSpec, Transport, detect_artifact, generate_bundle, generate_device,
-    parse_artifact, profiles, validate, validate_bundle,
+    GeneratedArtifact, Host, MacAddress, PhoneModelId, PhoneOptionsCatalog, Protocol, ProtocolSpec,
+    SccpSpec, Secret, ServiceUrls, SettingVariant, Severity, SipLine, SipSpec, Transport,
+    detect_artifact, generate_bundle, generate_device, parse_artifact, phone_options, profiles,
+    resolve_profile, validate, validate_bundle,
 };
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 
 const EXIT_OK: u8 = 0;
 const EXIT_INVALID: u8 = 1;
@@ -36,6 +37,8 @@ enum Command {
     Validate(ValidateArgs),
     /// List built-in phone model profiles.
     Models(ModelsArgs),
+    /// Explore every SEP setting available to a phone model.
+    Explore(ExploreArgs),
 }
 
 #[derive(Debug, Args)]
@@ -181,6 +184,29 @@ struct ModelsArgs {
     format: OutputFormat,
 }
 
+#[derive(Debug, Args)]
+struct ExploreArgs {
+    /// Phone model name, alias, or numeric identifier.
+    #[arg(value_name = "MODEL")]
+    model: String,
+
+    /// Limit results to one protocol. The default covers every protocol
+    /// supported by a known model, or both protocols for an unknown model.
+    #[arg(long, value_enum)]
+    protocol: Option<ProtocolArg>,
+
+    /// Output format.
+    #[arg(long, value_enum, default_value_t)]
+    format: OutputFormat,
+}
+
+#[derive(Debug, Serialize)]
+struct ExploreOutput {
+    requested_model: String,
+    resolved_model: Option<String>,
+    options: Vec<PhoneOptionsCatalog>,
+}
+
 fn main() -> ExitCode {
     match run(Cli::parse()) {
         Ok(code) => ExitCode::from(code),
@@ -199,6 +225,7 @@ fn run(cli: Cli) -> Result<u8> {
         },
         Command::Validate(args) => validate_input(&args),
         Command::Models(args) => list_models(args.format),
+        Command::Explore(args) => explore_model(&args),
     }
 }
 
@@ -326,6 +353,110 @@ fn list_models(format: OutputFormat) -> Result<u8> {
     Ok(EXIT_OK)
 }
 
+fn explore_model(args: &ExploreArgs) -> Result<u8> {
+    let model = args
+        .model
+        .parse::<PhoneModelId>()
+        .context("invalid model")?;
+    let profile = resolve_profile(&model);
+    let protocols = match (args.protocol, profile) {
+        (Some(ProtocolArg::Sccp), _) => vec![Protocol::Sccp],
+        (Some(ProtocolArg::Sip), _) => vec![Protocol::Sip],
+        (None, Some(profile)) => profile.protocols.to_vec(),
+        (None, None) => Protocol::ALL.to_vec(),
+    };
+    let output = ExploreOutput {
+        requested_model: model.to_string(),
+        resolved_model: profile.map(|profile| profile.id.to_owned()),
+        options: protocols
+            .into_iter()
+            .map(|protocol| phone_options(&model, protocol))
+            .collect(),
+    };
+
+    match args.format {
+        OutputFormat::Json => println!("{}", serde_json::to_string_pretty(&output)?),
+        OutputFormat::Human => print_exploration(&output, profile)?,
+    }
+    Ok(EXIT_OK)
+}
+
+fn print_exploration(output: &ExploreOutput, profile: Option<&sep_rs::PhoneProfile>) -> Result<()> {
+    match profile {
+        Some(profile) => println!(
+            "{} — {} (model ID {})",
+            profile.id, profile.display_name, profile.model_id
+        ),
+        None => println!(
+            "{} — unrecognized model; showing generic enterprise options",
+            output.requested_model
+        ),
+    }
+
+    for options in &output.options {
+        println!();
+        println!("{} — {} settings", options.protocol, options.settings.len());
+        if !options.supported && profile.is_some() {
+            println!("This protocol is not supported by the selected model.");
+        }
+        println!("PATH\tSECTION\tTITLE\tCONSTRAINTS");
+        for setting in &options.settings {
+            println!(
+                "{}\t{}\t{}\t{}",
+                setting.path,
+                setting.section,
+                setting.title,
+                constraint_summary(&setting.constraint)?
+            );
+        }
+    }
+    Ok(())
+}
+
+fn constraint_summary(constraint: &SettingVariant) -> Result<String> {
+    let mut parts = vec![constraint.value_kind.to_string()];
+    if constraint.nullable {
+        parts.push("nullable".to_owned());
+    }
+    if constraint.multiple {
+        parts.push("multiple".to_owned());
+    }
+    if let Some(default) = &constraint.default {
+        parts.push(format!("default={}", serde_json::to_string(default)?));
+    }
+    if !constraint.allowed_values.is_empty() {
+        let choices = constraint
+            .allowed_values
+            .iter()
+            .map(|allowed| {
+                Ok(format!(
+                    "{} ({})",
+                    serde_json::to_string(&allowed.value)?,
+                    allowed.label
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?
+            .join(", ");
+        parts.push(format!("choices=[{choices}]"));
+    }
+    match (constraint.minimum, constraint.maximum) {
+        (Some(minimum), Some(maximum)) => parts.push(format!("range={minimum}..={maximum}")),
+        (Some(minimum), None) => parts.push(format!("minimum={minimum}")),
+        (None, Some(maximum)) => parts.push(format!("maximum={maximum}")),
+        (None, None) => {}
+    }
+    if let Some(maximum) = constraint.maximum_characters {
+        parts.push(format!("maximum_characters={maximum}"));
+    }
+    if let Some(pattern) = &constraint.pattern {
+        parts.push(format!("pattern={}", serde_json::to_string(pattern)?));
+    }
+    if constraint.secret {
+        parts.push("secret".to_owned());
+    }
+    Ok(parts.join("; "))
+}
+
 fn direct_device_spec(args: &DeviceArgs) -> Result<DeviceSpec> {
     let mac = args
         .mac
@@ -392,6 +523,8 @@ fn direct_device_spec(args: &DeviceArgs) -> Result<DeviceSpec> {
         ntp_server: None,
         locale: None,
         services: ServiceUrls::default(),
+        settings: Vec::new(),
+        allow_unknown_settings: false,
     })
 }
 

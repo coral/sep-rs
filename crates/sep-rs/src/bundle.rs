@@ -1,6 +1,7 @@
 //! Bundle assembly and offline dependency validation.
 
 use std::collections::{HashMap, HashSet};
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
@@ -30,11 +31,15 @@ pub enum BundleError {
         path: PathBuf,
         source: std::io::Error,
     },
+    #[cfg(not(target_arch = "wasm32"))]
     #[error("could not decode {path}: {source}")]
     Decode {
         path: PathBuf,
         source: serde_json::Error,
     },
+    #[cfg(target_arch = "wasm32")]
+    #[error("could not decode {path}: {message}")]
+    Decode { path: PathBuf, message: String },
 }
 
 /// Generate every configuration in a manifest and create an inventory for
@@ -99,17 +104,14 @@ pub fn generate_bundle(spec: &BundleSpec) -> Result<BootstrapBundle, BundleError
 ///
 /// Returns an error when the inventory cannot be read or decoded. Problems in
 /// files named by a valid inventory are returned as diagnostics instead.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn validate_bundle(directory: &Path) -> Result<Vec<Diagnostic>, BundleError> {
     let inventory_path = directory.join("bootstrap-manifest.json");
     let source = fs::read_to_string(&inventory_path).map_err(|source| BundleError::Read {
         path: inventory_path.clone(),
         source,
     })?;
-    let inventory: BundleInventory =
-        serde_json::from_str(&source).map_err(|source| BundleError::Decode {
-            path: inventory_path,
-            source,
-        })?;
+    let inventory = decode_inventory(&source, inventory_path)?;
 
     let mut files = vec![BundleFile {
         filename: "bootstrap-manifest.json".to_owned(),
@@ -156,11 +158,7 @@ pub fn validate_bundle_files(files: &[BundleFile]) -> Result<Vec<Diagnostic>, Bu
         .contents
         .as_deref()
         .ok_or(BundleError::MissingInventory)?;
-    let inventory: BundleInventory =
-        serde_json::from_str(inventory_source).map_err(|source| BundleError::Decode {
-            path: PathBuf::from("bootstrap-manifest.json"),
-            source,
-        })?;
+    let inventory = decode_inventory(inventory_source, PathBuf::from("bootstrap-manifest.json"))?;
 
     let mut diagnostics = Vec::new();
     for entry in &inventory.files {
@@ -213,6 +211,23 @@ pub fn validate_bundle_files(files: &[BundleFile]) -> Result<Vec<Diagnostic>, Bu
         }
     }
     Ok(diagnostics)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn decode_inventory(source: &str, path: PathBuf) -> Result<BundleInventory, BundleError> {
+    serde_json::from_str(source).map_err(|source| BundleError::Decode { path, source })
+}
+
+#[cfg(target_arch = "wasm32")]
+fn decode_inventory(source: &str, path: PathBuf) -> Result<BundleInventory, BundleError> {
+    let value = js_sys::JSON::parse(source).map_err(|error| BundleError::Decode {
+        path: path.clone(),
+        message: format!("{error:?}"),
+    })?;
+    serde_wasm_bindgen::from_value(value).map_err(|error| BundleError::Decode {
+        path,
+        message: error.to_string(),
+    })
 }
 
 fn is_safe_filename(filename: &str) -> bool {

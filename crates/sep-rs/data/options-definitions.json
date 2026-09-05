@@ -1,0 +1,765 @@
+{
+  "ArtifactValidationRequest": {
+    "additionalProperties": false,
+    "properties": {
+      "contents": {
+        "contentMediaType": "text/plain",
+        "type": "string",
+        "x-sep-multiline": true
+      },
+      "filename": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "model": {
+        "$ref": "#/$defs/PhoneModelId"
+      }
+    },
+    "required": [
+      "filename",
+      "contents"
+    ],
+    "title": "Artifact validation",
+    "type": "object"
+  },
+  "BundleFile": {
+    "additionalProperties": false,
+    "properties": {
+      "contents": {
+        "contentMediaType": "text/plain",
+        "type": "string",
+        "x-sep-multiline": true
+      },
+      "filename": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "required": [
+      "filename"
+    ],
+    "title": "Bundle file",
+    "type": "object"
+  },
+  "BundleSpec": {
+    "additionalProperties": false,
+    "default": {},
+    "properties": {
+      "defaults": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/DefaultSpec"
+        },
+        "type": "array"
+      },
+      "devices": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/DeviceSpec"
+        },
+        "type": "array"
+      },
+      "external_artifacts": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ExternalArtifact"
+        },
+        "type": "array"
+      }
+    },
+    "title": "Bundle generation",
+    "type": "object"
+  },
+  "BundleValidationRequest": {
+    "additionalProperties": false,
+    "properties": {
+      "files": {
+        "items": {
+          "$ref": "#/$defs/BundleFile"
+        },
+        "type": "array"
+      }
+    },
+    "required": [
+      "files"
+    ],
+    "title": "Bundle validation",
+    "type": "object"
+  },
+  "CallControlEndpoint": {
+    "additionalProperties": false,
+    "description": "Endpoint priorities must be unique within their containing list. Authenticated or encrypted signaling requires TLS.",
+    "properties": {
+      "host": {
+        "$ref": "#/$defs/Host"
+      },
+      "port": {
+        "examples": [
+          2000,
+          5060,
+          2443,
+          5061
+        ],
+        "maximum": 65535,
+        "minimum": 1,
+        "title": "Port",
+        "type": "integer"
+      },
+      "priority": {
+        "default": 0,
+        "description": "Lower values are preferred; priorities must be unique in one endpoint list.",
+        "maximum": 255,
+        "minimum": 0,
+        "title": "Priority",
+        "type": "integer"
+      },
+      "transport": {
+        "default": "tcp",
+        "enum": [
+          "udp",
+          "tcp",
+          "tls"
+        ],
+        "title": "Transport",
+        "type": "string"
+      }
+    },
+    "required": [
+      "host",
+      "port"
+    ],
+    "title": "Call-control endpoint",
+    "type": "object"
+  },
+  "DefaultSpec": {
+    "additionalProperties": false,
+    "properties": {
+      "date_template": {
+        "type": "string"
+      },
+      "endpoints": {
+        "items": {
+          "$ref": "#/$defs/CallControlEndpoint"
+        },
+        "minItems": 1,
+        "type": "array"
+      },
+      "firmware": {
+        "type": "string"
+      },
+      "locale": {
+        "type": "string"
+      },
+      "model_loads": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ModelLoad"
+        },
+        "type": "array"
+      },
+      "ntp_server": {
+        "$ref": "#/$defs/Host"
+      },
+      "protocol": {
+        "enum": [
+          "sccp",
+          "sip"
+        ],
+        "type": "string"
+      },
+      "time_zone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "protocol",
+      "endpoints"
+    ],
+    "title": "Defaults generation",
+    "type": "object"
+  },
+  "DeviceSpec": {
+    "additionalProperties": false,
+    "properties": {
+      "allow_unknown_settings": {
+        "default": false,
+        "description": "Forward-compatibility escape hatch. Leave false to retain full catalog validation.",
+        "title": "Allow settings absent from the catalog",
+        "type": "boolean"
+      },
+      "date_template": {
+        "type": "string"
+      },
+      "endpoints": {
+        "items": {
+          "$ref": "#/$defs/CallControlEndpoint"
+        },
+        "minItems": 1,
+        "title": "Call-control endpoints",
+        "type": "array"
+      },
+      "firmware": {
+        "title": "Firmware load",
+        "type": "string"
+      },
+      "locale": {
+        "type": "string"
+      },
+      "mac": {
+        "description": "Six octets in compact, colon-separated, hyphen-separated, SEP-prefixed, or SIP-prefixed form.",
+        "examples": [
+          "00:08:2F:B6:B4:AA",
+          "SEP00082FB6B4AA"
+        ],
+        "format": "mac",
+        "title": "MAC address",
+        "type": "string"
+      },
+      "model": {
+        "$ref": "#/$defs/PhoneModelId"
+      },
+      "ntp_server": {
+        "$ref": "#/$defs/Host"
+      },
+      "phone_label": {
+        "type": "string"
+      },
+      "protocol": {
+        "$ref": "#/$defs/ProtocolSpec"
+      },
+      "services": {
+        "$ref": "#/$defs/ServiceUrls"
+      },
+      "settings": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/SepSetting"
+        },
+        "title": "Advanced SEP settings",
+        "type": "array"
+      },
+      "time_zone": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "mac",
+      "model",
+      "protocol",
+      "endpoints"
+    ],
+    "title": "Device generation",
+    "type": "object"
+  },
+  "ExternalArtifact": {
+    "additionalProperties": false,
+    "properties": {
+      "description": {
+        "type": "string"
+      },
+      "filename": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "device_configuration",
+          "default_configuration",
+          "load_descriptor",
+          "firmware",
+          "dial_plan",
+          "soft_key_policy",
+          "locale",
+          "trust_list",
+          "other"
+        ],
+        "type": "string"
+      },
+      "required": {
+        "default": true,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "filename",
+      "kind"
+    ],
+    "title": "External artifact",
+    "type": "object"
+  },
+  "Host": {
+    "description": "An IP address or non-empty DNS hostname without whitespace or path separators.",
+    "examples": [
+      "call-control.example.net",
+      "192.0.2.10"
+    ],
+    "minLength": 1,
+    "title": "Host",
+    "type": "string"
+  },
+  "MediaPortRange": {
+    "additionalProperties": false,
+    "description": "Both ports must be nonzero and start must not exceed end.",
+    "properties": {
+      "end": {
+        "default": 32766,
+        "maximum": 65535,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "start": {
+        "default": 16384,
+        "maximum": 65535,
+        "minimum": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "start",
+      "end"
+    ],
+    "title": "Media port range",
+    "type": "object"
+  },
+  "ModelLoad": {
+    "additionalProperties": false,
+    "properties": {
+      "firmware": {
+        "type": "string"
+      },
+      "model": {
+        "$ref": "#/$defs/PhoneModelId"
+      },
+      "model_id": {
+        "description": "Numeric loadInformation suffix for an unlisted model.",
+        "maximum": 65535,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "model",
+      "firmware"
+    ],
+    "title": "Model firmware load",
+    "type": "object"
+  },
+  "PhoneModelId": {
+    "description": "A known profile ID or alias is recommended, but an unknown non-empty model identifier is accepted.",
+    "examples": [
+      "CP-7965G",
+      "7965"
+    ],
+    "minLength": 1,
+    "title": "Phone model",
+    "type": "string",
+    "x-sep-suggestions": "#/choices/model_profiles"
+  },
+  "ProtocolSpec": {
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "sccp": {
+            "$ref": "#/$defs/SccpSpec"
+          }
+        },
+        "required": [
+          "sccp"
+        ],
+        "title": "SCCP",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "sip": {
+            "$ref": "#/$defs/SipSpec"
+          }
+        },
+        "required": [
+          "sip"
+        ],
+        "title": "SIP",
+        "type": "object"
+      }
+    ],
+    "title": "Protocol configuration"
+  },
+  "SccpSpec": {
+    "additionalProperties": false,
+    "properties": {
+      "keepalive_seconds": {
+        "maximum": 65535,
+        "minimum": 0,
+        "title": "Keepalive interval",
+        "type": "integer"
+      },
+      "signaling": {
+        "default": "non_secure",
+        "enum": [
+          "non_secure",
+          "authenticated",
+          "encrypted"
+        ],
+        "title": "Signaling security",
+        "type": "string"
+      }
+    },
+    "title": "SCCP settings",
+    "type": "object"
+  },
+  "SepSetting": {
+    "additionalProperties": false,
+    "description": "A catalog-validated path/value pair. Repeated elements use one-based indexes and attributes use a final @name segment.",
+    "properties": {
+    "path": {
+      "pattern": "^/device/(?:[A-Za-z_][A-Za-z0-9_.-]*(?:\\[[1-9][0-9]*\\])?/)*(?:[A-Za-z_][A-Za-z0-9_.-]*(?:\\[[1-9][0-9]*\\])?|@[A-Za-z_][A-Za-z0-9_.-]*)$",
+        "type": "string",
+        "x-sep-suggestions": "#/choices/sep_settings"
+      },
+      "value": {
+        "$ref": "#/$defs/SepSettingValue"
+      }
+    },
+    "required": [
+      "path",
+      "value"
+    ],
+    "title": "Advanced SEP XML setting",
+    "type": "object"
+  },
+  "SepSettingValue": {
+    "description": "A scalar SEP XML value, a multi-select array, or null for an explicitly empty nullable element.",
+    "oneOf": [
+      {
+        "type": "boolean"
+      },
+      {
+        "type": "integer"
+      },
+      {
+        "type": "string"
+      },
+      {
+        "items": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "type": "array"
+      },
+      {
+        "type": "null"
+      }
+    ],
+    "title": "SEP setting value"
+  },
+  "ServiceUrls": {
+    "additionalProperties": false,
+    "default": {},
+    "properties": {
+      "directory": {
+        "type": "string"
+      },
+      "idle": {
+        "type": "string"
+      },
+      "information": {
+        "type": "string"
+      },
+      "messages": {
+        "type": "string"
+      },
+      "services": {
+        "type": "string"
+      }
+    },
+    "title": "Phone service URLs",
+    "type": "object"
+  },
+  "SipButton": {
+    "description": "Button positions must be nonzero and unique within one SIP configuration.",
+    "oneOf": [
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "line"
+          },
+          "line_index": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "line_index"
+        ],
+        "title": "Line",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "speed_dial"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "label",
+          "target"
+        ],
+        "title": "Speed dial",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "service_uri"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "uri": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "label",
+          "uri"
+        ],
+        "title": "Service URI",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "blf"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "label",
+          "target"
+        ],
+        "title": "Busy lamp field",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "intercom"
+          },
+          "line_index": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "line_index"
+        ],
+        "title": "Intercom",
+        "type": "object"
+      },
+      {
+        "additionalProperties": false,
+        "properties": {
+          "feature": {
+            "const": "raw"
+          },
+          "feature_id": {
+            "maximum": 65535,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "position": {
+            "maximum": 255,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "feature",
+          "feature_id"
+        ],
+        "title": "Raw vendor feature",
+        "type": "object"
+      }
+    ],
+    "title": "SIP button"
+  },
+  "SipLine": {
+    "additionalProperties": false,
+    "properties": {
+      "auth_name": {
+        "title": "Authentication username",
+        "type": "string"
+      },
+      "auth_secret": {
+        "title": "Authentication secret",
+        "type": "string",
+        "writeOnly": true,
+        "x-sep-secret": true
+      },
+      "directory_number": {
+        "examples": [
+          "1001"
+        ],
+        "minLength": 1,
+        "title": "Directory number",
+        "type": "string"
+      },
+      "display_name": {
+        "title": "Display name",
+        "type": "string"
+      },
+      "index": {
+        "description": "Indexes must be nonzero and unique within one SIP configuration.",
+        "maximum": 255,
+        "minimum": 1,
+        "title": "Line index",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "index",
+      "directory_number"
+    ],
+    "title": "SIP line",
+    "type": "object"
+  },
+  "SipSpec": {
+    "additionalProperties": false,
+    "properties": {
+      "buttons": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/SipButton"
+        },
+        "title": "Buttons",
+        "type": "array"
+      },
+      "lines": {
+        "items": {
+          "$ref": "#/$defs/SipLine"
+        },
+        "minItems": 1,
+        "title": "Lines",
+        "type": "array"
+      },
+      "media_ports": {
+        "$ref": "#/$defs/MediaPortRange"
+      },
+      "outbound_proxy": {
+        "$ref": "#/$defs/Host"
+      },
+      "signaling": {
+        "default": "non_secure",
+        "enum": [
+          "non_secure",
+          "authenticated",
+          "encrypted"
+        ],
+        "title": "Signaling security",
+        "type": "string"
+      },
+      "timers": {
+        "$ref": "#/$defs/SipTimers"
+      }
+    },
+    "required": [
+      "lines"
+    ],
+    "title": "SIP settings",
+    "type": "object"
+  },
+  "SipTimers": {
+    "additionalProperties": false,
+    "default": {},
+    "properties": {
+      "invite_expires_seconds": {
+        "maximum": 4294967295,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "keepalive_seconds": {
+        "maximum": 65535,
+        "minimum": 0,
+        "type": "integer"
+      },
+      "register_expires_seconds": {
+        "maximum": 4294967295,
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "title": "SIP timers",
+    "type": "object"
+  }
+}

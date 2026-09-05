@@ -41,14 +41,31 @@ func TestOptions(t *testing.T) {
 	if err := json.Unmarshal([]byte(value), &catalog); err != nil {
 		t.Fatalf("decode options: %v", err)
 	}
-	if catalog.SchemaVersion != 1 {
-		t.Fatalf("expected schema version 1, got %d", catalog.SchemaVersion)
+	if catalog.SchemaVersion != 2 {
+		t.Fatalf("expected schema version 2, got %d", catalog.SchemaVersion)
 	}
 	if len(catalog.Targets) != 1 || catalog.Targets[0].Target != device {
 		t.Fatalf("expected only device target, got %#v", catalog.Targets)
 	}
 	if len(catalog.Choices.ModelProfiles) == 0 || catalog.Schema["$defs"] == nil {
 		t.Fatal("expected model choices and shared schema definitions")
+	}
+}
+
+func TestPhoneOptions(t *testing.T) {
+	value, err := PhoneOptionsJson("8841", "sip")
+	if err != nil {
+		t.Fatalf("PhoneOptionsJson: %v", err)
+	}
+	var catalog struct {
+		Model    string           `json:"model"`
+		Settings []map[string]any `json:"settings"`
+	}
+	if err := json.Unmarshal([]byte(value), &catalog); err != nil {
+		t.Fatalf("decode phone options: %v", err)
+	}
+	if catalog.Model != "CP-8841" || len(catalog.Settings) != 391 {
+		t.Fatalf("unexpected CP-8841 catalog: model=%q settings=%d", catalog.Model, len(catalog.Settings))
 	}
 }
 

@@ -8,3 +8,9 @@ host = "call-control.example.net"
 port = 2000
 priority = 0
 transport = "tcp"
+
+# Advanced fields use the same model-specific catalog returned by
+# phone_options("7965", "sccp") / phoneOptions("7965", "sccp").
+[[settings]]
+path = "/device/vendorConfig/displayOnTime"
+value = "09:15"

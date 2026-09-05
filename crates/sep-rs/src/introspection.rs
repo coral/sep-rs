@@ -4,18 +4,73 @@
 //! JSON Schema Draft 2020-12 so it can be handed directly to form generators
 //! and other language-neutral tooling.
 
-use std::{fmt, str::FromStr};
+use std::collections::BTreeMap;
+use std::fmt;
+use std::str::FromStr;
+use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
 
 use crate::{
-    ArtifactDialect, ArtifactKind, ModelProfileView, Protocol, SignalingMode, Transport,
-    model_profiles,
+    ArtifactDialect, ArtifactKind, ModelProfileView, Protocol, SepSettingDefinition, SignalingMode,
+    SipButtonFeature, Transport, model_profiles, sep_settings,
 };
 
 /// Version of the `sep-rs` options document format.
-pub const OPTIONS_SCHEMA_VERSION: u32 = 1;
+pub const OPTIONS_SCHEMA_VERSION: u32 = 2;
+
+/// JSON-compatible value used for generated schemas without a runtime parser.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SchemaValue {
+    Null,
+    Boolean(bool),
+    Integer(i64),
+    String(String),
+    Array(Vec<Self>),
+    Object(BTreeMap<String, Self>),
+}
+
+impl SchemaValue {
+    /// Resolve an RFC 6901 JSON Pointer within this value.
+    #[must_use]
+    pub fn pointer(&self, pointer: &str) -> Option<&Self> {
+        if pointer.is_empty() {
+            return Some(self);
+        }
+        let mut current = self;
+        for encoded in pointer.strip_prefix('/')?.split('/') {
+            let key = encoded.replace("~1", "/").replace("~0", "~");
+            current = match current {
+                Self::Object(values) => values.get(&key)?,
+                Self::Array(values) => values.get(key.parse::<usize>().ok()?)?,
+                _ => return None,
+            };
+        }
+        Some(current)
+    }
+}
+
+impl From<&str> for SchemaValue {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_owned())
+    }
+}
+
+impl From<String> for SchemaValue {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+fn schema_object<const N: usize>(values: [(&str, SchemaValue); N]) -> SchemaValue {
+    SchemaValue::Object(
+        values
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+    )
+}
 
 /// A top-level input that can be described by the options API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -60,19 +115,15 @@ impl OptionsTarget {
         }
     }
 
-    const fn definition(self) -> &'static str {
-        match self {
-            Self::Device => "DeviceSpec",
-            Self::Defaults => "DefaultSpec",
-            Self::Bundle => "BundleSpec",
-            Self::ArtifactValidation => "ArtifactValidationRequest",
-            Self::BundleValidation => "BundleValidationRequest",
-        }
-    }
-
     #[must_use]
-    pub fn schema_ref(self) -> String {
-        format!("#/$defs/{}", self.definition())
+    pub const fn schema_ref(self) -> &'static str {
+        match self {
+            Self::Device => "#/$defs/DeviceSpec",
+            Self::Defaults => "#/$defs/DefaultSpec",
+            Self::Bundle => "#/$defs/BundleSpec",
+            Self::ArtifactValidation => "#/$defs/ArtifactValidationRequest",
+            Self::BundleValidation => "#/$defs/BundleValidationRequest",
+        }
     }
 }
 
@@ -129,7 +180,7 @@ impl From<OptionsTarget> for OptionsTargetDefinition {
             target,
             title: target.title().to_owned(),
             description: target.description().to_owned(),
-            schema_ref: target.schema_ref(),
+            schema_ref: target.schema_ref().to_owned(),
         }
     }
 }
@@ -147,6 +198,8 @@ pub struct OptionsChoices {
     pub artifact_kinds: Vec<ArtifactKind>,
     pub artifact_dialects: Vec<ArtifactDialect>,
     pub sip_button_features: Vec<String>,
+    /// Every cataloged enterprise SEP XML setting, including model/protocol variants.
+    pub sep_settings: Vec<SepSettingDefinition>,
 }
 
 /// Complete reflection document for `sep-rs` inputs.
@@ -156,7 +209,7 @@ pub struct OptionsCatalog {
     pub targets: Vec<OptionsTargetDefinition>,
     pub choices: OptionsChoices,
     /// JSON Schema Draft 2020-12 document containing all referenced inputs.
-    pub schema: Value,
+    pub schema: SchemaValue,
 }
 
 impl OptionsCatalog {
@@ -171,8 +224,9 @@ impl OptionsCatalog {
 
 /// Describe every supported input and every finite choice.
 #[must_use]
-pub fn options() -> OptionsCatalog {
-    build_options(&OptionsTarget::ALL)
+pub fn options() -> &'static OptionsCatalog {
+    static OPTIONS: LazyLock<OptionsCatalog> = LazyLock::new(|| build_options(&OptionsTarget::ALL));
+    &OPTIONS
 }
 
 /// Describe one supported input while retaining the shared choices and schema
@@ -191,11 +245,11 @@ fn build_options(targets: &[OptionsTarget]) -> OptionsCatalog {
     let one_of = target_definitions
         .iter()
         .map(|target| {
-            json!({
-                "title": target.title,
-                "description": target.description,
-                "$ref": target.schema_ref,
-            })
+            schema_object([
+                ("title", target.title.clone().into()),
+                ("description", target.description.clone().into()),
+                ("$ref", target.schema_ref.clone().into()),
+            ])
         })
         .collect::<Vec<_>>();
 
@@ -204,457 +258,32 @@ fn build_options(targets: &[OptionsTarget]) -> OptionsCatalog {
         targets: target_definitions,
         choices: OptionsChoices {
             model_profiles: model_profiles(),
-            protocols: vec![Protocol::Sccp, Protocol::Sip],
-            signaling_modes: vec![
-                SignalingMode::NonSecure,
-                SignalingMode::Authenticated,
-                SignalingMode::Encrypted,
-            ],
-            transports: vec![Transport::Udp, Transport::Tcp, Transport::Tls],
-            artifact_kinds: vec![
-                ArtifactKind::DeviceConfiguration,
-                ArtifactKind::DefaultConfiguration,
-                ArtifactKind::LoadDescriptor,
-                ArtifactKind::Firmware,
-                ArtifactKind::DialPlan,
-                ArtifactKind::SoftKeyPolicy,
-                ArtifactKind::Locale,
-                ArtifactKind::TrustList,
-                ArtifactKind::Other,
-            ],
-            artifact_dialects: vec![
-                ArtifactDialect::EnterpriseXml,
-                ArtifactDialect::LegacySipText,
-                ArtifactDialect::CompiledBinary,
-                ArtifactDialect::SignedXml,
-                ArtifactDialect::EncryptedXml,
-                ArtifactDialect::Mpp3pcc,
-            ],
-            sip_button_features: [
-                "line",
-                "speed_dial",
-                "service_uri",
-                "blf",
-                "intercom",
-                "raw",
-            ]
-            .into_iter()
-            .map(str::to_owned)
-            .collect(),
+            protocols: Protocol::ALL.to_vec(),
+            signaling_modes: SignalingMode::ALL.to_vec(),
+            transports: Transport::ALL.to_vec(),
+            artifact_kinds: ArtifactKind::ALL.to_vec(),
+            artifact_dialects: ArtifactDialect::ALL.to_vec(),
+            sip_button_features: Vec::from(SipButtonFeature::KINDS.map(str::to_owned)),
+            sep_settings: sep_settings().settings.clone(),
         },
-        schema: json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "title": "sep-rs input options",
-            "description": "Supported inputs for generation and validation. Unknown phone model identifiers remain valid and use generic enterprise assumptions.",
-            "oneOf": one_of,
-            "$defs": definitions(),
-        }),
+        schema: schema_object([
+            (
+                "$schema",
+                "https://json-schema.org/draft/2020-12/schema".into(),
+            ),
+            ("title", "sep-rs input options".into()),
+            (
+                "description",
+                "Supported inputs for generation and validation. Unknown phone model identifiers remain valid and use generic enterprise assumptions."
+                    .into(),
+            ),
+            ("oneOf", SchemaValue::Array(one_of)),
+            ("$defs", generated_schema_definitions()),
+        ]),
     }
 }
 
-#[allow(clippy::too_many_lines)]
-fn definitions() -> Value {
-    json!({
-        "Host": {
-            "title": "Host",
-            "description": "An IP address or non-empty DNS hostname without whitespace or path separators.",
-            "type": "string",
-            "minLength": 1,
-            "examples": ["call-control.example.net", "192.0.2.10"]
-        },
-        "PhoneModelId": {
-            "title": "Phone model",
-            "description": "A known profile ID or alias is recommended, but an unknown non-empty model identifier is accepted.",
-            "type": "string",
-            "minLength": 1,
-            "x-sep-suggestions": "#/choices/model_profiles",
-            "examples": ["CP-7965G", "7965"]
-        },
-        "CallControlEndpoint": {
-            "title": "Call-control endpoint",
-            "description": "Endpoint priorities must be unique within their containing list. Authenticated or encrypted signaling requires TLS.",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["host", "port"],
-            "properties": {
-                "host": { "$ref": "#/$defs/Host" },
-                "port": {
-                    "title": "Port",
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535,
-                    "examples": [2000, 5060, 2443, 5061]
-                },
-                "priority": {
-                    "title": "Priority",
-                    "description": "Lower values are preferred; priorities must be unique in one endpoint list.",
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 255,
-                    "default": 0
-                },
-                "transport": {
-                    "title": "Transport",
-                    "type": "string",
-                    "enum": ["udp", "tcp", "tls"],
-                    "default": "tcp"
-                }
-            }
-        },
-        "SccpSpec": {
-            "title": "SCCP settings",
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "signaling": {
-                    "title": "Signaling security",
-                    "type": "string",
-                    "enum": ["non_secure", "authenticated", "encrypted"],
-                    "default": "non_secure"
-                },
-                "keepalive_seconds": {
-                    "title": "Keepalive interval",
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 65535
-                }
-            }
-        },
-        "SipLine": {
-            "title": "SIP line",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["index", "directory_number"],
-            "properties": {
-                "index": {
-                    "title": "Line index",
-                    "description": "Indexes must be nonzero and unique within one SIP configuration.",
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 255
-                },
-                "directory_number": {
-                    "title": "Directory number",
-                    "type": "string",
-                    "minLength": 1,
-                    "examples": ["1001"]
-                },
-                "display_name": { "title": "Display name", "type": "string" },
-                "auth_name": { "title": "Authentication username", "type": "string" },
-                "auth_secret": {
-                    "title": "Authentication secret",
-                    "type": "string",
-                    "writeOnly": true,
-                    "x-sep-secret": true
-                }
-            }
-        },
-        "SipButton": {
-            "title": "SIP button",
-            "description": "Button positions must be nonzero and unique within one SIP configuration.",
-            "oneOf": [
-                {
-                    "title": "Line",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "line_index"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "line" },
-                        "line_index": { "type": "integer", "minimum": 1, "maximum": 255 }
-                    }
-                },
-                {
-                    "title": "Speed dial",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "label", "target"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "speed_dial" },
-                        "label": { "type": "string" },
-                        "target": { "type": "string" }
-                    }
-                },
-                {
-                    "title": "Service URI",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "label", "uri"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "service_uri" },
-                        "label": { "type": "string" },
-                        "uri": { "type": "string" }
-                    }
-                },
-                {
-                    "title": "Busy lamp field",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "label", "target"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "blf" },
-                        "label": { "type": "string" },
-                        "target": { "type": "string" }
-                    }
-                },
-                {
-                    "title": "Intercom",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "line_index"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "intercom" },
-                        "line_index": { "type": "integer", "minimum": 1, "maximum": 255 }
-                    }
-                },
-                {
-                    "title": "Raw vendor feature",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["position", "feature", "feature_id"],
-                    "properties": {
-                        "position": { "type": "integer", "minimum": 1, "maximum": 255 },
-                        "feature": { "const": "raw" },
-                        "feature_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
-                        "label": { "type": "string" },
-                        "target": { "type": "string" }
-                    }
-                }
-            ]
-        },
-        "SipTimers": {
-            "title": "SIP timers",
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "register_expires_seconds": { "type": "integer", "minimum": 0, "maximum": 4_294_967_295_u64 },
-                "invite_expires_seconds": { "type": "integer", "minimum": 0, "maximum": 4_294_967_295_u64 },
-                "keepalive_seconds": { "type": "integer", "minimum": 0, "maximum": 65535 }
-            },
-            "default": {}
-        },
-        "MediaPortRange": {
-            "title": "Media port range",
-            "description": "Both ports must be nonzero and start must not exceed end.",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["start", "end"],
-            "properties": {
-                "start": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 16384 },
-                "end": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 32766 }
-            }
-        },
-        "SipSpec": {
-            "title": "SIP settings",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["lines"],
-            "properties": {
-                "signaling": {
-                    "title": "Signaling security",
-                    "type": "string",
-                    "enum": ["non_secure", "authenticated", "encrypted"],
-                    "default": "non_secure"
-                },
-                "lines": {
-                    "title": "Lines",
-                    "type": "array",
-                    "minItems": 1,
-                    "items": { "$ref": "#/$defs/SipLine" }
-                },
-                "buttons": {
-                    "title": "Buttons",
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/SipButton" },
-                    "default": []
-                },
-                "timers": { "$ref": "#/$defs/SipTimers" },
-                "media_ports": { "$ref": "#/$defs/MediaPortRange" },
-                "outbound_proxy": { "$ref": "#/$defs/Host" }
-            }
-        },
-        "ProtocolSpec": {
-            "title": "Protocol configuration",
-            "oneOf": [
-                {
-                    "title": "SCCP",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["sccp"],
-                    "properties": { "sccp": { "$ref": "#/$defs/SccpSpec" } }
-                },
-                {
-                    "title": "SIP",
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["sip"],
-                    "properties": { "sip": { "$ref": "#/$defs/SipSpec" } }
-                }
-            ]
-        },
-        "ServiceUrls": {
-            "title": "Phone service URLs",
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "services": { "type": "string" },
-                "directory": { "type": "string" },
-                "messages": { "type": "string" },
-                "information": { "type": "string" },
-                "idle": { "type": "string" }
-            },
-            "default": {}
-        },
-        "DeviceSpec": {
-            "title": "Device generation",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["mac", "model", "protocol", "endpoints"],
-            "properties": {
-                "mac": {
-                    "title": "MAC address",
-                    "description": "Six octets in compact, colon-separated, hyphen-separated, SEP-prefixed, or SIP-prefixed form.",
-                    "type": "string",
-                    "format": "mac",
-                    "examples": ["00:08:2F:B6:B4:AA", "SEP00082FB6B4AA"]
-                },
-                "model": { "$ref": "#/$defs/PhoneModelId" },
-                "firmware": { "title": "Firmware load", "type": "string" },
-                "protocol": { "$ref": "#/$defs/ProtocolSpec" },
-                "endpoints": {
-                    "title": "Call-control endpoints",
-                    "type": "array",
-                    "minItems": 1,
-                    "items": { "$ref": "#/$defs/CallControlEndpoint" }
-                },
-                "phone_label": { "type": "string" },
-                "time_zone": { "type": "string" },
-                "date_template": { "type": "string" },
-                "ntp_server": { "$ref": "#/$defs/Host" },
-                "locale": { "type": "string" },
-                "services": { "$ref": "#/$defs/ServiceUrls" }
-            }
-        },
-        "ModelLoad": {
-            "title": "Model firmware load",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["model", "firmware"],
-            "properties": {
-                "model": { "$ref": "#/$defs/PhoneModelId" },
-                "model_id": {
-                    "description": "Numeric loadInformation suffix for an unlisted model.",
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 65535
-                },
-                "firmware": { "type": "string" }
-            }
-        },
-        "DefaultSpec": {
-            "title": "Defaults generation",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["protocol", "endpoints"],
-            "properties": {
-                "protocol": { "type": "string", "enum": ["sccp", "sip"] },
-                "firmware": { "type": "string" },
-                "endpoints": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": { "$ref": "#/$defs/CallControlEndpoint" }
-                },
-                "model_loads": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/ModelLoad" },
-                    "default": []
-                },
-                "time_zone": { "type": "string" },
-                "date_template": { "type": "string" },
-                "ntp_server": { "$ref": "#/$defs/Host" },
-                "locale": { "type": "string" }
-            }
-        },
-        "ExternalArtifact": {
-            "title": "External artifact",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["filename", "kind"],
-            "properties": {
-                "filename": { "type": "string", "minLength": 1 },
-                "kind": {
-                    "type": "string",
-                    "enum": [
-                        "device_configuration", "default_configuration", "load_descriptor",
-                        "firmware", "dial_plan", "soft_key_policy", "locale", "trust_list", "other"
-                    ]
-                },
-                "required": { "type": "boolean", "default": true },
-                "description": { "type": "string" }
-            }
-        },
-        "BundleSpec": {
-            "title": "Bundle generation",
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "devices": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/DeviceSpec" },
-                    "default": []
-                },
-                "defaults": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/DefaultSpec" },
-                    "default": []
-                },
-                "external_artifacts": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/ExternalArtifact" },
-                    "default": []
-                }
-            },
-            "default": {}
-        },
-        "ArtifactValidationRequest": {
-            "title": "Artifact validation",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["filename", "contents"],
-            "properties": {
-                "filename": { "type": "string", "minLength": 1 },
-                "contents": { "type": "string", "contentMediaType": "text/plain", "x-sep-multiline": true },
-                "model": { "$ref": "#/$defs/PhoneModelId" }
-            }
-        },
-        "BundleFile": {
-            "title": "Bundle file",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["filename"],
-            "properties": {
-                "filename": { "type": "string", "minLength": 1 },
-                "contents": { "type": "string", "contentMediaType": "text/plain", "x-sep-multiline": true }
-            }
-        },
-        "BundleValidationRequest": {
-            "title": "Bundle validation",
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["files"],
-            "properties": {
-                "files": {
-                    "type": "array",
-                    "items": { "$ref": "#/$defs/BundleFile" }
-                }
-            }
-        }
-    })
-}
+include!(concat!(env!("OUT_DIR"), "/options_schema.rs"));
 
 #[cfg(test)]
 mod tests {
@@ -686,7 +315,7 @@ mod tests {
         assert!(!catalog.choices.model_profiles.is_empty());
         assert_eq!(
             catalog.schema.pointer("/$defs/ProtocolSpec/oneOf/1/title"),
-            Some(&json!("SIP"))
+            Some(&SchemaValue::from("SIP"))
         );
     }
 
@@ -711,7 +340,7 @@ mod tests {
             catalog
                 .schema
                 .pointer("/$defs/PhoneModelId/x-sep-suggestions"),
-            Some(&json!("#/choices/model_profiles"))
+            Some(&SchemaValue::from("#/choices/model_profiles"))
         );
     }
 

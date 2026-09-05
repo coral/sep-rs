@@ -8,8 +8,9 @@
 
 use sep_rs::{
     ArtifactValidationRequest, BundleSpec, BundleValidationRequest, DeviceSpec, OptionsTarget,
-    generate_bundle, generate_device, model_profiles, options, options_for,
-    validate_artifact_input, validate_bundle_input,
+    PhoneModelId, Protocol, SepSetting, generate_bundle, generate_device, model_profiles, options,
+    options_for, phone_options, validate_artifact_input, validate_bundle_input,
+    validate_phone_settings,
 };
 use serde::{Serialize, de::DeserializeOwned};
 
@@ -26,15 +27,40 @@ fn model_profiles_json() -> Result<String, SepToolsError> {
 }
 
 fn options_json(target: Option<String>) -> Result<String, SepToolsError> {
-    let catalog = match target {
-        Some(target) => options_for(target.parse::<OptionsTarget>().map_err(|error| {
-            SepToolsError::InvalidRequest {
+    match target {
+        Some(target) => encode(&options_for(target.parse::<OptionsTarget>().map_err(
+            |error| SepToolsError::InvalidRequest {
                 message: error.to_string(),
-            }
-        })?),
-        None => options(),
-    };
-    encode(&catalog)
+            },
+        )?)),
+        None => encode(options()),
+    }
+}
+
+fn phone_options_json(model: String, protocol: String) -> Result<String, SepToolsError> {
+    let model = model
+        .parse::<PhoneModelId>()
+        .map_err(|error| SepToolsError::InvalidRequest {
+            message: error.to_string(),
+        })?;
+    encode(&phone_options(&model, parse_protocol(&protocol)?))
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PhoneSettingsValidationRequest {
+    model: PhoneModelId,
+    protocol: Protocol,
+    settings: Vec<SepSetting>,
+}
+
+fn validate_phone_settings_json(request_json: String) -> Result<String, SepToolsError> {
+    let request = decode::<PhoneSettingsValidationRequest>(&request_json)?;
+    encode(&validate_phone_settings(
+        &request.model,
+        request.protocol,
+        &request.settings,
+    ))
 }
 
 fn validate_artifact_json(request_json: String) -> Result<String, SepToolsError> {
@@ -79,6 +105,14 @@ fn encode<T: Serialize>(value: &T) -> Result<String, SepToolsError> {
     })
 }
 
+fn parse_protocol(value: &str) -> Result<Protocol, SepToolsError> {
+    value.parse().map_err(
+        |error: sep_rs::ParseProtocolError| SepToolsError::InvalidRequest {
+            message: error.to_string(),
+        },
+    )
+}
+
 uniffi::include_scaffolding!("sep_tools");
 
 #[cfg(test)]
@@ -101,9 +135,18 @@ mod tests {
         let value = options_json(Some("device".to_owned())).expect("serialize options");
         let value: serde_json::Value = serde_json::from_str(&value).expect("valid JSON");
 
-        assert_eq!(value["schema_version"], 1);
+        assert_eq!(value["schema_version"], 2);
         assert_eq!(value["targets"][0]["target"], "device");
         assert_eq!(value["targets"].as_array().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn phone_options_are_model_specific() {
+        let value = phone_options_json("8841".to_owned(), "sip".to_owned())
+            .expect("serialize phone options");
+        let value: serde_json::Value = serde_json::from_str(&value).expect("valid JSON");
+        assert_eq!(value["model"], "CP-8841");
+        assert_eq!(value["settings"].as_array().map(Vec::len), Some(391));
     }
 
     #[test]

@@ -26,6 +26,18 @@ pub enum ArtifactDialect {
     Mpp3pcc,
 }
 
+impl ArtifactDialect {
+    /// Every artifact dialect recognized by this crate.
+    pub const ALL: [Self; 6] = [
+        Self::EnterpriseXml,
+        Self::LegacySipText,
+        Self::CompiledBinary,
+        Self::SignedXml,
+        Self::EncryptedXml,
+        Self::Mpp3pcc,
+    ];
+}
+
 /// The role of a bootstrap artifact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -41,12 +53,32 @@ pub enum ArtifactKind {
     Other,
 }
 
+impl ArtifactKind {
+    /// Every artifact role recognized by this crate.
+    pub const ALL: [Self; 9] = [
+        Self::DeviceConfiguration,
+        Self::DefaultConfiguration,
+        Self::LoadDescriptor,
+        Self::Firmware,
+        Self::DialPlan,
+        Self::SoftKeyPolicy,
+        Self::Locale,
+        Self::TrustList,
+        Self::Other,
+    ];
+}
+
 /// Call-control protocol selected for a phone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Protocol {
     Sccp,
     Sip,
+}
+
+impl Protocol {
+    /// Every call-control protocol recognized by this crate.
+    pub const ALL: [Self; 2] = [Self::Sccp, Self::Sip];
 }
 
 impl fmt::Display for Protocol {
@@ -58,6 +90,22 @@ impl fmt::Display for Protocol {
     }
 }
 
+impl FromStr for Protocol {
+    type Err = ParseProtocolError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value.to_ascii_lowercase().as_str() {
+            "sccp" => Ok(Self::Sccp),
+            "sip" => Ok(Self::Sip),
+            _ => Err(ParseProtocolError),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("protocol must be `sccp` or `sip`")]
+pub struct ParseProtocolError;
+
 /// Security mode requested for signaling.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -68,6 +116,11 @@ pub enum SignalingMode {
     Encrypted,
 }
 
+impl SignalingMode {
+    /// Every signaling security mode accepted by this crate.
+    pub const ALL: [Self; 3] = [Self::NonSecure, Self::Authenticated, Self::Encrypted];
+}
+
 /// Transport used to reach a call-control endpoint.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -76,6 +129,11 @@ pub enum Transport {
     #[default]
     Tcp,
     Tls,
+}
+
+impl Transport {
+    /// Every call-control transport accepted by this crate.
+    pub const ALL: [Self; 3] = [Self::Udp, Self::Tcp, Self::Tls];
 }
 
 /// A normalized six-octet phone MAC address.
@@ -489,6 +547,18 @@ pub enum SipButtonFeature {
     },
 }
 
+impl SipButtonFeature {
+    /// Every discriminant accepted by the serialized `feature` field.
+    pub const KINDS: [&'static str; 6] = [
+        "line",
+        "speed_dial",
+        "service_uri",
+        "blf",
+        "intercom",
+        "raw",
+    ];
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SipTimers {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -578,6 +648,217 @@ pub struct ServiceUrls {
     pub idle: Option<String>,
 }
 
+/// A scalar or multi-select value written to an enterprise SEP XML leaf.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SepSettingValue {
+    Boolean(bool),
+    Integer(i64),
+    String(String),
+    List(Vec<Self>),
+    Null,
+}
+
+impl SepSettingValue {
+    /// Convert a validated value to the text form used by SEP XML.
+    #[must_use]
+    pub fn to_xml_text(&self) -> String {
+        match self {
+            Self::Boolean(value) => value.to_string(),
+            Self::Integer(value) => value.to_string(),
+            Self::String(value) => value.clone(),
+            Self::List(values) => values
+                .iter()
+                .map(Self::to_xml_text)
+                .collect::<Vec<_>>()
+                .join(","),
+            Self::Null => String::new(),
+        }
+    }
+}
+
+/// A syntactically valid path to a value in enterprise SEP XML.
+///
+/// Paths are rooted at `/device`, use one-based indexes for repeated elements,
+/// and use a final `@name` segment for attributes.
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct SepSettingPath {
+    value: String,
+    normalized: String,
+}
+
+impl SepSettingPath {
+    /// Validate and construct a setting path.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ParseSepSettingPathError`] when the path cannot identify an
+    /// element or attribute in enterprise SEP XML.
+    pub fn new(value: impl Into<String>) -> Result<Self, ParseSepSettingPathError> {
+        let value = value.into();
+        let normalized = normalize_sep_setting_path(&value)?;
+        Ok(Self { value, normalized })
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.value
+    }
+
+    pub(crate) fn normalized(&self) -> &str {
+        &self.normalized
+    }
+}
+
+impl AsRef<str> for SepSettingPath {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl fmt::Debug for SepSettingPath {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_tuple("SepSettingPath")
+            .field(&self.value)
+            .finish()
+    }
+}
+
+impl fmt::Display for SepSettingPath {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.value)
+    }
+}
+
+impl FromStr for SepSettingPath {
+    type Err = ParseSepSettingPathError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for SepSettingPath {
+    type Error = ParseSepSettingPathError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl Serialize for SepSettingPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.value)
+    }
+}
+
+impl<'de> Deserialize<'de> for SepSettingPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        String::deserialize(deserializer)?
+            .try_into()
+            .map_err(de::Error::custom)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ParseSepSettingPathError {
+    #[error("setting path must start with `/device/`")]
+    InvalidRoot,
+    #[error("setting path contains an empty segment")]
+    EmptySegment,
+    #[error("an XML attribute must be the final path segment")]
+    AttributeNotFinal,
+    #[error("invalid XML attribute name `{0}`")]
+    InvalidAttributeName(String),
+    #[error("invalid XML element name `{0}`")]
+    InvalidElementName(String),
+    #[error("invalid one-based element index `{0}`")]
+    InvalidElementIndex(String),
+}
+
+fn normalize_sep_setting_path(path: &str) -> Result<String, ParseSepSettingPathError> {
+    if !path.starts_with("/device/") {
+        return Err(ParseSepSettingPathError::InvalidRoot);
+    }
+
+    let segments = path.split('/').skip(1).collect::<Vec<_>>();
+    let mut normalized = Vec::with_capacity(segments.len());
+    for (offset, &segment) in segments.iter().enumerate() {
+        if segment.is_empty() {
+            return Err(ParseSepSettingPathError::EmptySegment);
+        }
+        if let Some(attribute) = segment.strip_prefix('@') {
+            if offset + 1 != segments.len() {
+                return Err(ParseSepSettingPathError::AttributeNotFinal);
+            }
+            if !valid_xml_name(attribute) {
+                return Err(ParseSepSettingPathError::InvalidAttributeName(
+                    attribute.to_owned(),
+                ));
+            }
+            normalized.push(segment.to_owned());
+            continue;
+        }
+
+        let (name, indexed) = match segment.rsplit_once('[') {
+            Some((name, index)) if index.ends_with(']') => {
+                let index = &index[..index.len() - 1];
+                if index.parse::<usize>().ok().is_none_or(|index| index == 0) {
+                    return Err(ParseSepSettingPathError::InvalidElementIndex(
+                        index.to_owned(),
+                    ));
+                }
+                (name, true)
+            }
+            _ => (segment, false),
+        };
+        if !valid_xml_name(name) {
+            return Err(ParseSepSettingPathError::InvalidElementName(
+                name.to_owned(),
+            ));
+        }
+        normalized.push(if indexed {
+            format!("{name}[*]")
+        } else {
+            name.to_owned()
+        });
+    }
+
+    Ok(format!("/{}", normalized.join("/")))
+}
+
+fn valid_xml_name(name: &str) -> bool {
+    let mut characters = name.chars();
+    characters
+        .next()
+        .is_some_and(|first| first.is_ascii_alphabetic() || first == '_')
+        && characters.all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.')
+        })
+}
+
+/// One validated path/value override in an enterprise SEP XML document.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SepSetting {
+    pub path: SepSettingPath,
+    pub value: SepSettingValue,
+}
+
+impl SepSetting {
+    #[must_use]
+    pub const fn new(path: SepSettingPath, value: SepSettingValue) -> Self {
+        Self { path, value }
+    }
+}
+
 /// Complete semantic input for one phone configuration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceSpec {
@@ -599,6 +880,14 @@ pub struct DeviceSpec {
     pub locale: Option<String>,
     #[serde(default)]
     pub services: ServiceUrls,
+    /// Advanced, catalog-validated enterprise XML settings. These are applied
+    /// after semantic fields, so an explicit setting at the same path wins.
+    #[serde(default)]
+    pub settings: Vec<SepSetting>,
+    /// Permit syntactically safe paths absent from the catalog. This
+    /// is intentionally false by default because it weakens full validation.
+    #[serde(default)]
+    pub allow_unknown_settings: bool,
 }
 
 /// A model-specific firmware reference in a defaults document.

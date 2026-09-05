@@ -19,12 +19,17 @@ cargo add sep-rs
 ```
 
 ```rust
-use sep_rs::{ArtifactValidationRequest, OptionsTarget, options, validate_artifact_input};
+use sep_rs::{ArtifactValidationRequest, OptionsTarget, Protocol, options, phone_options,
+    validate_artifact_input};
 
 // A typed reflection document with JSON Schema and runtime choice catalogs.
 let all_inputs = options();
 let device_input = all_inputs.target(OptionsTarget::Device).unwrap();
 assert_eq!(device_input.schema_ref, "#/$defs/DeviceSpec");
+
+// Resolve legal values, defaults, ranges, and formats for one concrete phone.
+let phone = phone_options(&"8841".parse().unwrap(), Protocol::Sip);
+assert_eq!(phone.model.as_deref(), Some("CP-8841"));
 
 let result = validate_artifact_input(&ArtifactValidationRequest {
     filename: "SEP001122334455.cnf.xml".to_owned(),
@@ -58,6 +63,14 @@ sep-rs validate SEP00082FB6B4AA.cnf.xml
 sep-rs validate --model 7965 SEP00082FB6B4AA.cnf.xml
 sep-rs validate --format json SEP00082FB6B4AA.cnf.xml
 sep-rs validate bundle ./tftp-root
+```
+
+Explore every known setting for a phone model. Known models use their supported
+protocols; unrecognized models show the generic enterprise catalogs:
+
+```console
+cargo run -- explore 7609
+cargo run -- explore 8841 --protocol sip --format json
 ```
 
 Generate a device configuration from a TOML or JSON manifest:
@@ -108,21 +121,26 @@ The package uses wasm-pack's `bundler` target. Its generated JavaScript imports
 the `.wasm` module directly, which Wrangler bundles for Cloudflare Workers.
 
 ```ts
-import { modelProfiles, options, validateArtifact } from 'sep-tools'
+import {
+  modelProfiles,
+  options,
+  phoneOptions,
+  validateArtifact,
+  validatePhoneSettings,
+} from 'sep-tools'
 
 const models = modelProfiles()
 const deviceForm = options('device')
+const phone = phoneOptions('8841', 'sip')
+const settingErrors = validatePhoneSettings('8841', 'sip', [
+  { path: '/device/vendorConfig/recordingToneLocalVolume', value: 101 },
+])
 const result = validateArtifact({
   filename: 'SEP001122334455.cnf.xml',
   contents: '<device>...</device>',
+  model: '8841',
 })
 ```
-
-The package exports `options`, `modelProfiles`, `validateArtifact`,
-`validateBundle`, `generateDevice`, and `generateBundle`. `options()` returns a
-typed catalog backed by JSON Schema Draft 2020-12 for rendering dynamic forms;
-pass a target such as `device` to filter it. Operations are synchronous and do
-not perform network or filesystem I/O.
 
 ## Go bindings
 

@@ -83,6 +83,9 @@ pub mod code {
     pub const MODEL_PROTOCOL_MISMATCH: &str = "model_protocol_mismatch";
     pub const SECURE_MODE_MISMATCH: &str = "secure_mode_mismatch";
     pub const UNKNOWN_FIELD: &str = "unknown_field";
+    pub const INVALID_SETTING: &str = "invalid_setting";
+    pub const SETTING_NOT_APPLICABLE: &str = "setting_not_applicable";
+    pub const DUPLICATE_SETTING: &str = "duplicate_setting";
     pub const UNKNOWN_MODEL: &str = "unknown_model";
     pub const UNKNOWN_FIRMWARE: &str = "unknown_firmware";
     pub const RAW_FEATURE: &str = "raw_feature";
