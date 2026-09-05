@@ -117,8 +117,9 @@ npm run build:npm
 npm pack ./pkg
 ```
 
-The package uses wasm-pack's `bundler` target. Its generated JavaScript imports
-the `.wasm` module directly, which Wrangler bundles for Cloudflare Workers.
+The package includes a standard bundler entry point and a Cloudflare-specific
+entry point. In a Worker, import from `sep-tools/cloudflare`; Wrangler will
+bundle and initialize the `.wasm` module synchronously.
 
 ```ts
 import {
@@ -141,6 +142,17 @@ const result = validateArtifact({
   model: '8841',
 })
 ```
+
+The same functions are available in a Worker by changing only the import:
+
+```ts
+import { options, phoneOptions, validateArtifact } from 'sep-tools/cloudflare'
+```
+
+A complete, deployment-neutral Worker is available in
+[`examples/cloudflare-worker/`](examples/cloudflare-worker/). It includes local
+Wrangler commands and HTTP endpoints for model discovery, option reflection,
+phone-specific settings, and artifact validation.
 
 ## Go bindings
 

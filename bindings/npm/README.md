@@ -20,8 +20,19 @@ const result = validateArtifact({
 })
 ```
 
-Wrangler bundles the package's `.wasm` module when it is imported by a Worker.
-All operations are synchronous and perform no network or filesystem I/O.
+Cloudflare Workers use the runtime-specific entry point so the compiled WASM
+module is initialized correctly inside `workerd`:
+
+```ts
+import { modelProfiles, options, phoneOptions } from 'sep-tools/cloudflare'
+```
+
+Wrangler bundles the package's `.wasm` module automatically. All operations
+are synchronous and perform no network or filesystem I/O.
+
+See the repository's
+[Cloudflare Worker example](https://github.com/coral/sep-rs/tree/master/examples/cloudflare-worker)
+for a complete TypeScript entry point and deployment-neutral Wrangler config.
 
 `options()` returns every input as a JSON Schema Draft 2020-12 document plus
 finite choice catalogs. Pass `device`, `defaults`, `bundle`,

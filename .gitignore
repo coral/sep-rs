@@ -3,6 +3,16 @@ research/
 node_modules/
 /pkg/
 *.tgz
+
+# Local Worker state and environment values
+**/.wrangler/
+**/.dev.vars
+**/.dev.vars.*
+**/.env
+**/.env.*
+!**/.dev.vars.example
+!**/.env.example
+
 # macOS metadata (at every depth)
 **/.DS_Store
 **/.AppleDouble
