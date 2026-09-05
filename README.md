@@ -180,6 +180,21 @@ Install the pinned generator and run:
 See [`bindings/go/README.md`](bindings/go/README.md) for generator installation
 and native linking details.
 
+## Python bindings
+
+Generate the Python module from the same UniFFI bridge and test it against the
+native Rust library:
+
+```console
+./scripts/build-python-bindings.sh
+./scripts/test-python-bindings.sh
+```
+
+The generated module exposes the same JSON-shaped operations as Go, including
+the complete options catalog and phone-specific setting resolution. See
+[`bindings/python/README.md`](bindings/python/README.md) for loading and
+distribution details.
+
 ## License
 
 Licensed under the [MIT License](LICENSE).

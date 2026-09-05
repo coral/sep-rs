@@ -9,6 +9,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ./scripts/test-go-bindings.sh
+./scripts/test-python-bindings.sh
 npm run build:npm
 node scripts/test-npm.mjs
 npm_config_cache="${TMPDIR:-/tmp}/sep-rs-npm-cache" npm pack ./pkg --dry-run

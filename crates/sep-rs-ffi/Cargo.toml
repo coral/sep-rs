@@ -8,8 +8,17 @@ homepage.workspace = true
 publish = false
 description = "UniFFI bridge used to generate sep-rs language bindings"
 
+[features]
+bindgen = ["uniffi/cli"]
+
 [lib]
 crate-type = ["cdylib", "staticlib"]
+
+[[bin]]
+name = "sep-rs-bindgen"
+path = "src/bin/sep-rs-bindgen.rs"
+required-features = ["bindgen"]
+doc = false
 
 [dependencies]
 sep-rs.workspace = true

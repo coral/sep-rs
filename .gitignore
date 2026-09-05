@@ -3,6 +3,9 @@ research/
 node_modules/
 /pkg/
 *.tgz
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
 
 # Local Worker state and environment values
 **/.wrangler/
